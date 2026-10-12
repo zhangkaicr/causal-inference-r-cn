@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme-default="light">
+<head>
+<script>
+(function(){
+  var KEY="share-theme", d=document.documentElement;
+  try{var saved=localStorage.getItem(KEY);}catch(e){var saved=null;}
+  d.setAttribute("data-theme", saved || d.getAttribute("data-theme-default") || "light");
+  document.addEventListener("DOMContentLoaded",function(){
+    var b=document.getElementById("theme-toggle"); if(!b) return;
+    function sync(){
+      var dark=d.getAttribute("data-theme")==="dark";
+      b.setAttribute("aria-pressed", dark?"true":"false");
+      b.setAttribute("title", dark?"切换到亮色主题 (Alt+T)":"切换到暗色主题 (Alt+T)");
+    }
+    b.addEventListener("click",function(){
+      var nxt=d.getAttribute("data-theme")==="dark"?"light":"dark";
+      d.setAttribute("data-theme",nxt);
+      try{localStorage.setItem(KEY,nxt);}catch(e){}
+      sync();
+    });
+    document.addEventListener("keydown",function(e){
+      if(e.altKey&&(e.key==="t"||e.key==="T")) b.click();
+    });
+    sync();
+  });
+})();
+</script>
+<script>
+window.MathJax={tex:{inlineMath:[['\\(','\\)'],['$','$']],displayMath:[['\\[','\\]'],['$$','$$']]},
+options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 4 章 双重差分及其医疗应用</title>
+<style>
+:root{
+  --bg:#f7f7f5; --card:#ffffff; --text:#2c2c2a; --muted:#6b6a65;
+  --line:#e3e2dd; --accent:#534ab7; --accent-soft:#eeedfe; --tag:#f1efe8;
+  --code-bg:#f4f3ef; --code-line:#e7e5df; --code-text:#2c2c2a;
+  --note-bg:#eef6ff; --note-line:#bcd6f5; --note-text:#1f3a5f;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;line-height:1.8;margin:0}
+.wrap{max-width:900px;margin:0 auto;padding:32px 22px 80px}
+.topbar{margin-bottom:26px;display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--accent);text-decoration:none;font-size:14px;font-weight:600}
+.back:hover{text-decoration:underline}
+.chpos{font-size:13px;color:var(--muted);letter-spacing:.04em}
+h1{font-size:30px;font-weight:700;letter-spacing:-.3px;margin:6px 0 4px;line-height:1.3}
+.sub{color:var(--muted);font-size:14px;margin-bottom:8px}
+.sub a{color:var(--accent)}
+.lead{font-size:16px;color:var(--text);margin:14px 0 22px;border-left:3px solid var(--accent);padding:4px 0 4px 16px;background:var(--accent-soft);border-radius:0 8px 8px 0}
+.content h2{font-size:22px;font-weight:700;margin:38px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.content h3{font-size:18px;font-weight:700;margin:26px 0 10px}
+.content h4{font-size:16px;font-weight:700;margin:20px 0 8px}
+.content p{margin:12px 0}
+.content ul,.content ol{margin:12px 0;padding-left:26px}
+.content li{margin:6px 0}
+.content a{color:var(--accent);text-decoration:none}
+.content a:hover{text-decoration:underline}
+.content img{max-width:100%;height:auto;border:1px solid var(--line);border-radius:8px;margin:14px 0;background:#fff;display:block}
+.content blockquote{margin:14px 0;padding:10px 16px;border-left:3px solid var(--line);background:var(--tag);border-radius:0 8px 8px 0;color:var(--muted)}
+.note{margin:18px 0;padding:14px 18px;border:1px solid var(--note-line);background:var(--note-bg);border-radius:10px;color:var(--note-text)}
+.note .nt{display:inline-block;font-weight:700;font-size:13px;letter-spacing:.04em;margin-bottom:6px;color:var(--accent)}
+.note p{margin:6px 0}
+.rulebox{margin:18px 0;padding:14px 18px;border-radius:10px;background:#5ADDD7;color:#0c2c2a}
+.rulebox h3{margin:0 0 6px;color:#0c2c2a}
+.rulebox p{margin:0;font-weight:400;color:#0c2c2a}
+.toc{margin:22px 0;padding:16px 20px;border:1px solid var(--line);background:var(--card);border-radius:10px}
+.toc .ttl{font-weight:700;font-size:14px;color:var(--muted);margin-bottom:8px;letter-spacing:.04em}
+.toc ol{margin:0;padding-left:22px;columns:2;column-gap:28px}
+.toc li{margin:4px 0;font-size:14.5px}
+.toc a{color:var(--text)}
+.foot{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.foot a{color:var(--accent)}
+.csl-entry{margin:8px 0;font-size:13.5px;line-height:1.6;padding-left:14px;text-indent:-14px}
+pre{background:var(--code-bg);border:1px solid var(--code-line);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.6;color:var(--code-text);margin:14px 0}
+pre code{background:none;border:none;padding:0;font-size:inherit;color:inherit}
+code{background:var(--code-bg);border:1px solid var(--code-line);border-radius:4px;padding:1px 5px;font-size:.92em;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--tag);font-weight:700}
+.pager{display:flex;justify-content:space-between;gap:12px;margin-top:40px;flex-wrap:wrap}
+.pager a{flex:1 1 45%;min-width:200px;padding:12px 16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);text-decoration:none;font-size:14px}
+.pager a:hover{border-color:var(--accent);color:var(--accent)}
+.pager .next{text-align:right}
+.pager .disabled{opacity:.35;pointer-events:none}
+:root[data-theme="dark"]{--bg:#0f1116;--card:#181b22;--text:#e4e6ea;--muted:#98a0ac;--line:#2a2f3a;--accent:#7aa2f7;--accent-soft:#16203a;--tag:#1e222b;--code-bg:#0b0d12;--code-line:#1d2129;--code-text:#d7dae0;--note-bg:#15233b;--note-line:#274168;--note-text:#bcd6f5}
+:root[data-theme="dark"] .content img{background:#0b0d12}
+:root[data-theme="dark"] .rulebox{background:#1c5b56;color:#d6f5f1}
+:root[data-theme="dark"] .toc{background:var(--card)}
+.tt{position:fixed;top:16px;right:16px;z-index:9999;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;color:var(--text);background:var(--card);border:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.24)}
+.tt:hover{transform:translateY(-1px);border-color:var(--accent)}
+.tt svg{display:none}
+[data-theme="dark"] .ico-sun{display:block}
+[data-theme="dark"] .ico-moon{display:none}
+[data-theme="light"] .ico-sun{display:none}
+[data-theme="light"] .ico-moon{display:block}
+@media(max-width:640px){.tt{top:10px;right:10px;width:36px;height:36px}}
+@media print{.tt{display:none}}
+</style>
+</head>
+<body>
+<button id="theme-toggle" class="tt" type="button" aria-label="切换明暗主题" title="切换明暗主题 (Alt+T)">
+  <svg class="ico-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12H5M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
+  <svg class="ico-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 14.5A8.2 8.2 0 0 1 9.5 4a8.2 8.2 0 1 0 10.5 10.5z"/></svg>
+</button>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="../index.html">&larr; 返回全书目录</a>
+    <span class="chpos">第 4 章 / 共 14 章</span>
+  </div>
+  <h1>第 4 章 双重差分及其医疗应用</h1>
+  <p class="sub">原书第 4 章 · <a href="https://kamran-afzali.github.io/Bookdown_Causality/difference-in-differences-with-a-healthcare-application.html">difference-in-differences-with-a-healthcare-application.html</a> · Kamran Afzali《Causal Inference in R》中文译本 · 非官方翻译</p>
+  <div class="content">
+<h2>4.1 引言</h2>
+<p>在观察性研究中，随机对照试验（randomized controlled trial, RCT）往往不可行，此时像双重差分（difference-in-differences, DiD）这样的因果推断方法，就能在特定假设下为估计处理效应（treatment effect）提供一个稳健的框架。DiD 在拥有面板数据（panel data）的场景中尤其有价值——同一批观察单位被连续追踪多个时间点，其中一部分接受处理，另一部分不接受。借助数据的时间结构，DiD 通过比较处理组与对照组随时间发生的结局（outcome）变化，把处理的因果效应分离出来。该方法被广泛应用于经济学、公共政策和医疗卫生等领域，用于评估政策变动、医疗项目一类的干预。</p>
+<p>本文聚焦 DiD，探讨它的理论基础、数学形式与实践实现。我们配合 R 代码，用一个贴近现实的医疗案例——评估远程医疗（telemedicine）项目对患者结局的影响——来演示这套方法。我们还将讨论诊断方法、局限性与各种扩展，以保证因果推断的稳健性。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>在卫生政策评估中，DiD 是最常用的准实验设计之一。典型场景如：某省率先推行按病种付费（DRG）改革、某医院集团分批次上线抗菌药物管理系统、某市对部分社区试点家庭医生签约服务——政策不可能随机分配到人或医院，但可以按机构、按地区、按时间分批推开，这就天然形成了「处理组」与「对照组」以及「处理前」与「处理后」。流行病学读者可以把 DiD 理解为一种「利用政策试点做自然实验」的思路：它不做个体层面的配对，而是利用群体层面的时间趋势差异来识别效应。与 RCT 相比，DiD 的优势是不受伦理与可行性限制、能直接评估真实世界中的政策；代价是依赖平行趋势假设，且估计的是试点人群的效应，向其他人群外推需谨慎。</p>
+</div>
+<h2>4.2 双重差分：理论框架</h2>
+<h3>4.2.1 核心思想</h3>
+<p>DiD 通过比较处理组与对照组<strong>结局随时间的变化</strong>来估计处理的因果效应。该方法假设：如果没有处理，处理组与对照组的结局会遵循<strong>平行趋势（parallel trends）</strong>。这一假设使 DiD 能够同时排除两类干扰：组间不随时间变化的差异（例如两组患者基线病情轻重不同），以及同时影响两组的共同时间趋势（例如全国范围内诊疗规范的变化）。</p>
+<h3>4.2.2 数学形式</h3>
+<p>下面把 DiD 框架形式化。对单位 <span class="math inline">\(i\)</span> 在时间 <span class="math inline">\(t \in \{0, 1\}\)</span>（处理前与处理后）定义如下符号：</p>
+<ul>
+<li><span class="math inline">\(Y_{it}\)</span>：单位 <span class="math inline">\(i\)</span> 在时间 <span class="math inline">\(t\)</span> 的观测结局。</li>
+<li><span class="math inline">\(D_i \in \{0, 1\}\)</span>：处理指示变量（<span class="math inline">\(D_i = 1\)</span> 表示处理组单位，<span class="math inline">\(D_i = 0\)</span> 表示对照组单位）。</li>
+<li><span class="math inline">\(T_t \in \{0, 1\}\)</span>：时间指示变量（<span class="math inline">\(T_t = 0\)</span> 表示处理前，<span class="math inline">\(T_t = 1\)</span> 表示处理后）。</li>
+<li><span class="math inline">\(Y_{it}(1), Y_{it}(0)\)</span>：分别在接受处理与未接受处理下的潜在结局（potential outcomes）。</li>
+</ul>
+<p>我们关心的因果效应是<strong>处理组平均处理效应（average treatment effect on the treated, ATT）</strong>：</p>
+<p><span class="math display">\[
+\text{ATT} = \mathbb{E}[Y_{i1}(1) - Y_{i1}(0) \mid D_i = 1]
+\]</span></p>
+<p>DiD 估计量假设观测结局可以建模为：</p>
+<p><span class="math display">\[
+Y_{it} = \beta_0 + \beta_1 D_i + \beta_2 T_t + \delta (D_i \cdot T_t) + \epsilon_{it}
+\]</span></p>
+<p>其中：</p>
+<ul>
+<li><span class="math inline">\(\beta_0\)</span>：对照组在处理前（<span class="math inline">\(t = 0\)</span>）的基线结局。</li>
+<li><span class="math inline">\(\beta_1\)</span>：处理组与对照组之间不随时间变化的差异。</li>
+<li><span class="math inline">\(\beta_2\)</span>：同时影响两组的共同时间趋势。</li>
+<li><span class="math inline">\(\delta\)</span>：DiD 估计量，即 ATT 的估计。</li>
+<li><span class="math inline">\(\epsilon_{it}\)</span>：误差项，假设均值为零。</li>
+</ul>
+<p>DiD 估计量按下式计算：</p>
+<p><span class="math display">\[
+\widehat{\text{DiD}} = \left( \bar{Y}_{1, \text{treated}} - \bar{Y}_{0, \text{treated}} \right) - \left( \bar{Y}_{1, \text{control}} - \bar{Y}_{0, \text{control}} \right)
+\]</span></p>
+<p>其中 <span class="math inline">\(\bar{Y}_{t, g}\)</span> 是组 <span class="math inline">\(g\)</span>（处理组或对照组）在时间 <span class="math inline">\(t\)</span> 的平均结局。</p>
+<h3>4.2.3 关键假设：平行趋势</h3>
+<p>DiD 的有效性取决于<strong>平行趋势假设</strong>：</p>
+<p><span class="math display">\[
+\mathbb{E}[Y_{i1}(0) - Y_{i0}(0) \mid D_i = 1] = \mathbb{E}[Y_{i1}(0) - Y_{i0}(0) \mid D_i = 0]
+\]</span></p>
+<p>它假设：若没有处理，处理组的平均结局变化应当等于对照组的平均结局变化。由于处理组在治疗后的反事实结局 <span class="math inline">\(Y_{i1}(0)\)</span> 不可观测，这一假设无法被直接检验；但我们可以通过考察处理前的趋势、或纳入协变量调整潜在混杂因子，来评估其合理性。</p>
+<ul>
+<li><strong>数据要求</strong>：DiD 需要面板数据（同一批单位被重复观测）或具有清晰处理组与对照组的重复截面数据。</li>
+<li><strong>协变量</strong>：纳入不受处理影响的控制变量，可以提高精度并调整时变混杂因子。</li>
+<li><strong>诊断</strong>：应当可视化处理前的趋势以评估平行趋势假设；安慰剂检验（placebo test）等稳健性检查可以进一步验证模型。</li>
+<li><strong>扩展</strong>：DiD 可以扩展到多个时间期、交错采纳处理（staggered treatment adoption）或异质性效应的情形，使用广义 DiD 等高级方法。</li>
+</ul>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>平行趋势假设在临床场景中的含义值得细说。它并不要求两组患者的病情完全相同，而只要求：<strong>在没有干预的情况下，两组结局指标会以相同的方式随时间漂移</strong>。例如比较开展远程医疗的诊所与未开展的诊所的再入院率，只要两组周边没有发生只影响其中一方的变化（如一家连锁药店只在处理组社区开业、一场流感只冲击其中一个病区），共同的时间漂移就可以被差分掉。临床研究中常见的违反情形包括：处理组与对照组位于不同地区而地区政策不同、处理组医院同期还开展了其他质量改进项目、疾病谱变化对两组影响不对称。选择对照组时，应优先寻找与研究组患者结构相似、所处市场环境相似、且尚未开展该项目的机构；并在论文中报告两组处理前多个时间点的趋势图，这是 DiD 论文的「标配」证据。</p>
+</div>
+<h2>4.3 应用：评估医疗领域的远程医疗项目</h2>
+<p>假设一家医疗集团于 2024 年推行远程医疗项目，以改善患者结局，例如降低慢性病患者的医院再入院率。项目在部分诊所（处理组）上线，其余诊所继续常规面对面诊疗（对照组）。我们观测患者结局（如 30 天再入院率）在 2023 年（处理前）与 2025 年（处理后）的表现。利用 DiD，我们估计该项目对再入院率的因果效应。</p>
+<p>我们模拟 200 家诊所（100 家处理、100 家对照）两年间的再入院率数据。真实的处理效应为使再入院率下降 3%。我们纳入一个协变量（患者平均年龄）以控制潜在的混杂。</p>
+<h3>4.3.1 R 实现</h3>
+<p>下面的 R 代码用于模拟数据、估计 DiD 效应并执行诊断。</p>
+<div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"># 加载所需的 R 包
+library(ggplot2)
+library(dplyr)
+
+# 设置随机种子以保证结果可复现
+set.seed(123)
+
+# 参数设定
+n_clinics &lt;- 200  # 100 家处理组诊所、100 家对照组诊所
+time_periods &lt;- 2  # 2023（处理前）、2025（处理后）
+true_effect &lt;- -5  # 效应量放大到 -5%，使效果更明显
+noise_sd &lt;- 0.5    # 减小噪声，使效应更容易被检测到
+
+# 构建数据
+data &lt;- data.frame(
+  clinic = rep(1:n_clinics, each = time_periods),
+  time = rep(c(0, 1), times = n_clinics),  # 0 = 2023 年，1 = 2025 年
+  year = rep(c(2023, 2025), times = n_clinics),
+  treated = rep(rep(c(0, 1), each = time_periods), times = n_clinics/2),
+  age = rep(rnorm(n_clinics, mean = 65, sd = 5), each = time_periods)
+)
+
+# 生成再入院率（%）
+data$readmission &lt;- 20 +                   # 基线再入院率
+  1 * data$treated +                      # 处理组诊所的基线再入院率更高
+  2 * data$time +                         # 长期世俗趋势
+  true_effect * data$treated * data$time + # 处理效应
+  0.1 * data$age +                        # 年龄效应
+  rnorm(nrow(data), mean = 0, sd = noise_sd)  # 减小后的噪声
+
+# 预览数据
+head(data)</code></pre></div>
+<pre><code>##   clinic time year treated      age readmission
+## 1      1    0 2023       0 62.19762    27.31917
+## 2      1    1 2025       0 62.19762    28.87597
+## 3      2    0 2023       1 63.84911    27.25234
+## 4      2    1 2025       1 63.84911    24.65651
+## 5      3    0 2023       0 72.79354    27.07218
+## 6      3    1 2025       0 72.79354    29.04123</code></pre>
+<p>输出解读：数据是典型的面板长表——每家诊所（clinic）出现两行，分别对应 2023 年与 2025 年；treated 标记组别，age 为诊所层面的患者平均年龄，readmission 为模拟的再入院率（%）。可以看到对照组诊所 1 从 27.3 升到 28.9（仅体现 +2 的世俗趋势），而处理组诊所 2 从 27.3 降到 24.7（趋势 2 减去效应 5，再叠加噪声），差异已经初现。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>本节用模拟数据来演示方法，这在方法学章节中很常见：因为「真实效应」已知，可以检验估计量是否工作。注意正文写的是真实效应为再入院率下降 3%，而代码中 <code>true_effect &lt;- -5</code>，随后输出的估计值也约为 -5.1——以代码为准即可理解为示例参数，读者复现时不必纠结两个数字的不一致。另外要提醒两点：其一，这里的观测单位是诊所（聚类），同一诊所两年的再入院率相关，且两家诊所之间也可能相关，正式分析应使用聚类稳健标准误（以诊所为聚类单位）；其二，再入院率是介于 0 与 1 之间的比例，若直接对率本身做线性回归可能出现拟合值越界或异方差问题，实践中可考虑对数变换、logit 变换或以「再入院人数/出院人数」做 Poisson / 二项回归，再用边际效应解释。原书使用线性模型是为了让 DiD 的「交互项系数 = 效应」这一核心直觉保持透明。</p>
+</div>
+<div class="sourceCode" id="cb32"><pre class="sourceCode r"><code class="sourceCode r"># 检查平行趋势：处理前数据（2021—2023）
+data_pre &lt;- data.frame(
+  clinic = rep(1:n_clinics, each = 3),
+  year = rep(c(2021, 2022, 2023), times = n_clinics),
+  treated = rep(rep(c(0, 1), each = 3), times = n_clinics/2),
+  readmission = 20 + 
+    1 * rep(rep(c(0, 1), each = 3), times = n_clinics/2) +  # 组间差异
+    2 * rep(0:2, times = n_clinics) +                      # 线性趋势
+    rnorm(3 * n_clinics, 0, noise_sd)                      # 减小后的噪声
+)
+
+# 汇总处理前各组的均值用于绘图
+means_pre &lt;- data_pre %&gt;%
+  group_by(year, treated) %&gt;%
+  summarise(readmission = mean(readmission), .groups = "drop")
+
+# 绘制处理前趋势图
+ggplot(means_pre, aes(x = year, y = readmission, color = factor(treated), group = treated)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(title = "Pre-Treatment Trends in Readmission Rates",
+       x = "Year", y = "Readmission Rate (%)",
+       color = "Group") +
+  scale_color_manual(values = c("blue", "red"), labels = c("Control", "Treated")) +
+  theme_minimal()</code></pre></div>
+<pre><code>## Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+## ℹ Please use `linewidth` instead.
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was generated.</code></pre>
+<p>输出解读：这条 Warning 只是提示 ggplot2 3.4.0 起画线更推荐用 <code>linewidth</code> 代替 <code>size</code>，不影响图形本身，可忽略。</p>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-10-1.png" width="672" alt="处理前（2021—2023）两组诊所再入院率趋势图，两条曲线基本平行" /></p>
+<p>输出解读：处理前的三年里，两条曲线几乎平行上移（模拟数据中两组每年都 +2），这正是 DiD 需要的「对照组能够代表处理组的反事实趋势」的可视化证据。</p>
+<div class="sourceCode" id="cb34"><pre class="sourceCode r"><code class="sourceCode r"># 处理后趋势（用于可视化）
+means_post &lt;- data %&gt;%
+  group_by(year, treated) %&gt;%
+  summarise(readmission = mean(readmission), .groups = "drop")
+
+# 绘制处理后趋势图，展示两组斜率的分化
+ggplot(means_post, aes(x = year, y = readmission, color = factor(treated), group = treated)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(title = "Post-Treatment Trends in Readmission Rates",
+       x = "Year", y = "Readmission Rate (%)",
+       color = "Group") +
+  scale_color_manual(values = c("blue", "red"), labels = c("Control", "Treated")) +
+  theme_minimal()</code></pre></div>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-11-1.png" width="672" alt="处理后两组诊所再入院率趋势图，处理组斜率明显低于对照组" /></p>
+<p>输出解读：进入 2025 年后，对照组继续按原趋势上行，而处理组曲线走平甚至下行，两条线的斜率在 2024 年项目上线后明显分化——这段「裂口」就是 DiD 要度量的效应。</p>
+<div class="sourceCode" id="cb35"><pre class="sourceCode r"><code class="sourceCode r"># 带协变量的 DiD 回归
+did_model &lt;- lm(readmission ~ treated + time + treated:time + age, data = data)
+
+# 查看结果摘要
+summary(did_model)</code></pre></div>
+<pre><code>## 
+## Call:
+## lm(formula = readmission ~ treated + time + treated:time + age, 
+##     data = data)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -1.49718 -0.30275  0.00724  0.34468  1.35039 
+## 
+## Coefficients:
+##               Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  20.002830   0.341274   58.61   &lt;2e-16 ***
+## treated       1.021168   0.069101   14.78   &lt;2e-16 ***
+## time          1.930823   0.069097   27.94   &lt;2e-16 ***
+## age           0.100911   0.005194   19.43   &lt;2e-16 ***
+## treated:time -5.078044   0.097718  -51.97   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 0.4886 on 395 degrees of freedom
+## Multiple R-squared:  0.9143, Adjusted R-squared:  0.9135 
+## F-statistic:  1054 on 4 and 395 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>输出解读：请重点看 <code>treated:time</code> 这一行——它就是 DiD 估计量，系数为 <strong>-5.078</strong>，标准误 0.098，t 值 -51.97，p &lt; 2e-16，即远程医疗使再入院率平均下降约 5.1 个百分点。其余系数的含义分别是：treated ≈ 1（处理组基线高 1 个百分点，被差分消掉）、time ≈ 1.93（两组的共同时间趋势）、age ≈ 0.10（年龄每大 1 岁，再入院率高 0.1 个百分点）。模型 R² 达 0.91，说明组别、时间、趋势与年龄已解释了绝大部分变异。</p>
+<div class="sourceCode" id="cb37"><pre class="sourceCode r"><code class="sourceCode r"># 手动计算 DiD
+means &lt;- data %&gt;%
+  group_by(treated, time) %&gt;%
+  summarise(readmission = mean(readmission), .groups = "drop")
+
+y0_control &lt;- means$readmission[means$treated == 0 &amp; means$time == 0]
+y1_control &lt;- means$readmission[means$treated == 0 &amp; means$time == 1]
+y0_treated &lt;- means$readmission[means$treated == 1 &amp; means$time == 0]
+y1_treated &lt;- means$readmission[means$treated == 1 &amp; means$time == 1]
+
+did_estimate &lt;- (y1_treated - y0_treated) - (y1_control - y0_control)
+cat("DiD Estimate:", did_estimate, "%\n")</code></pre></div>
+<pre><code>## DiD Estimate: -5.078044 %</code></pre>
+<p>输出解读：不借助回归，直接用四个组均值做差，得到的 DiD 估计为 <strong>-5.078044%</strong>，与回归中交互项的系数完全一致。这验证了两者等价：两期两组的 DiD 就是「处理组前后差」减去「对照组前后差」。</p>
+<div class="sourceCode" id="cb39"><pre class="sourceCode r"><code class="sourceCode r"># 安慰剂检验：仅使用处理前年份（2022 对 2023）
+data_placebo &lt;- data_pre[data_pre$year %in% c(2022, 2023), ]
+did_placebo &lt;- lm(readmission ~ treated * factor(year), data = data_placebo)
+summary(did_placebo)</code></pre></div>
+<pre><code>## 
+## Call:
+## lm(formula = readmission ~ treated * factor(year), data = data_placebo)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -1.32794 -0.36928 -0.01144  0.30504  1.34543 
+## 
+## Coefficients:
+##                          Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)              22.02035    0.05341 412.304   &lt;2e-16 ***
+## treated                   0.99908    0.07553  13.228   &lt;2e-16 ***
+## factor(year)2023          2.03292    0.07553  26.915   &lt;2e-16 ***
+## treated:factor(year)2023 -0.08943    0.10682  -0.837    0.403    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 0.5341 on 396 degrees of freedom
+## Multiple R-squared:  0.8116, Adjusted R-squared:  0.8102 
+## F-statistic: 568.6 on 3 and 396 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>输出解读：把「假处理时点」提前到 2022 年（实际尚无干预），重新做一次 DiD。此时交互项 <code>treated:factor(year)2023</code> 系数仅 -0.089，p = 0.403 远不显著——如果平行趋势不成立，这里往往会冒出虚假的「效应」。不显著即为通过：没有证据表明两组在处理前就已经「分道扬镳」。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>安慰剂检验（placebo test）的逻辑是「在没有处理的地方找处理」：随机或系统地更换假处理时点、假处理组，如果估计屡屡显著，说明差异来自趋势背离而非干预本身。事件研究法（event study）是它的「加强版」：把每一年都与基线年做交互，画出各期的系数轨迹，既能看处理前的趋势是否平行（处理前系数应贴近 0），又能看效应是否逐期累积、有无预期效应（anticipation，处理前系数就显著上翘）或衰减。两者是当今卫生政策评估论文的常规配置。近年计量经济学还提醒：当不同单位在不同时间采纳处理（交错采纳）时，用传统两期 DiD 或双向固定效应模型会把已经处理的单位悄悄用作对照组，产生「负权重」导致的偏倚；此时应使用 Callaway–Sant'Anna、Sun–Abraham 或 de Chaisemartin–D'Haultfœuille 等专门估计量。原书在「扩展」中提到的 staggered adoption 值得按这个方向深化。</p>
+</div>
+<h3>4.3.2 局限性与要点</h3>
+<ul>
+<li><strong>处理前趋势</strong>：该图检查处理组与对照组诊所的再入院率在 2023 年之前是否遵循平行趋势，以支持平行趋势假设。</li>
+<li><strong>DiD 估计</strong>：交互项（<span class="math inline">\(\text{treated} \cdot \text{time}\)</span>）上的回归系数在调整患者年龄后估计处理效应，手动计算确认了这一估计。</li>
+<li><strong>安慰剂检验</strong>：把 DiD 应用于处理前年份（2022 对 2023）应得到不显著的效应，从而强化平行趋势假设的有效性。</li>
+</ul>
+<p>在我们的模拟中，估计出的效应接近真实效应（-3%），表明远程医疗项目使再入院率下降了约 3 个百分点。</p>
+<ul>
+<li><strong>违反平行趋势</strong>：若处理前趋势发生分化，DiD 估计可能有偏。合成控制法（synthetic control）或三重差分（triple differences）等技术可以应对这一问题。</li>
+<li><strong>时变混杂因子</strong>：在两组间差异性地变化的未观测因素（例如新出台的医疗政策）可能使结果产生偏倚。纳入相关协变量可以缓解这一问题。</li>
+<li><strong>外推性</strong>：ATT 适用于处理组人群。向其他人群推广需要谨慎。</li>
+<li><strong>扩展</strong>：对于处理时点交错或多个时期的情形，可以使用广义 DiD 模型或固定效应回归。</li>
+</ul>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>DiD 与 RCT 的取舍是临床研究者最常面对的问题。当干预已知有益、需要快速回答、且混杂结构简单时，RCT 仍是金标准；DiD 更合适的场景是：随机化不可行（政策只能分批推开）、需要评估真实世界落地效果、或结局罕见且随访极长（如五年死亡率）时。一个常被忽视的点是，DiD 与 RCT 并不互斥——「阶梯式整群随机试验」（stepped-wedge cluster RCT）本质上就是随机化的交错采纳设计，既保留了随机化的无混杂保证，又能用 DiD 类估计量分析。反过来，如果处理组与对照组在年龄、病情等基线特征上差异很大，仅靠平行趋势并不够：可以在回归中纳入组别与时变协变量的交互，或先做倾向得分匹配/加权再做 DiD（即「匹配 + DiD」），让两组在处理前轨迹上更可比。</p>
+</div>
+<h2>4.4 结论</h2>
+<p>双重差分是一种强大的准实验因果推断方法，在随机试验不可行的医疗场景中尤为实用。借助面板数据与平行趋势假设，DiD 以直观而有吸引力的方式分离出处理效应。我们的医疗案例演示了 DiD 如何评估远程医疗项目对再入院率的影响，R 代码提供了可操作的实现。处理前趋势检查、安慰剂检验等诊断手段进一步增强了结果的稳健性。在后续章节中，我们将探索断点回归（Regression Discontinuity）和合成控制法（Synthetic Controls）等高级方法，进一步扩充因果推断工具箱。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>把 DiD 放进更长的因果方法谱系里看：它能处理「未测量的、不随时间变化的混杂」（通过差分消掉），这是它相对于倾向得分等方法的最大优势；但它处理不了「随时间变化且与处理相关的未测量混杂」，这是它与 RCT 的根本差距。因此报告 DiD 结果时，除了正文提到的诊断，还应尽量提供：处理组/对照组的构成描述、处理前多期趋势图、安慰剂检验与事件研究图、以及一套敏感性分析（如更换对照组、剔除政策同期事件、使用合成控制做对照）。这些材料共同构成审稿人判断「平行趋势是否可信」的证据链。</p>
+</div>
+<h2>4.5 参考文献</h2>
+<ul>
+<li>Angrist, J. D., &amp; Pischke, J.-S. (2009). <em>Mostly Harmless Econometrics</em>（《基本无害的计量经济学》）. Princeton University Press.</li>
+<li>Abadie, A. (2005). Semiparametric difference-in-differences estimators. <em>Review of Economic Studies</em>, 72(1), 1–19.</li>
+<li>Hernán, M. A., &amp; Robins, J. M. (2020). <em>Causal Inference: What If</em>（《因果推断：What If》）. Chapman &amp; Hall/CRC.</li>
+<li>Wooldridge, J. M. (2010). <em>Econometric Analysis of Cross Section and Panel Data</em>（《横截面与面板数据的计量经济分析》）. MIT Press.</li>
+</ul>
+
+  </div>
+  <div class="pager">
+    <a class="prev" href="ch03-propensity.html">← 上一章：倾向得分、双稳健估计量与逆概率加权</a>
+    <a class="next " href="ch05-iv.html">下一章：工具变量 →</a>
+  </div>
+  <div class="foot">本页为《Causal Inference in R》（Kamran Afzali，2026-01-17）的个人学习用途<strong>非官方中文译本</strong>，仅供学习交流，引用请以<a href="https://github.com/Kamran-Afzali/Bookdown_Causality">英文原文</a>为准。「背景与解释」框为译者补充，非原文内容。<br>原文：<a href="https://kamran-afzali.github.io/Bookdown_Causality/difference-in-differences-with-a-healthcare-application.html">https://kamran-afzali.github.io/Bookdown_Causality/difference-in-differences-with-a-healthcare-application.html</a> · 原书仓库：<a href="https://github.com/Kamran-Afzali/Bookdown_Causality">Kamran-Afzali/Bookdown_Causality</a> · 返回 <a href="../index.html">全书目录</a></div>
+</div>
+</body>
+</html>
