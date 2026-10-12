@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme-default="light">
+<head>
+<script>
+(function(){
+  var KEY="share-theme", d=document.documentElement;
+  try{var saved=localStorage.getItem(KEY);}catch(e){var saved=null;}
+  d.setAttribute("data-theme", saved || d.getAttribute("data-theme-default") || "light");
+  document.addEventListener("DOMContentLoaded",function(){
+    var b=document.getElementById("theme-toggle"); if(!b) return;
+    function sync(){
+      var dark=d.getAttribute("data-theme")==="dark";
+      b.setAttribute("aria-pressed", dark?"true":"false");
+      b.setAttribute("title", dark?"切换到亮色主题 (Alt+T)":"切换到暗色主题 (Alt+T)");
+    }
+    b.addEventListener("click",function(){
+      var nxt=d.getAttribute("data-theme")==="dark"?"light":"dark";
+      d.setAttribute("data-theme",nxt);
+      try{localStorage.setItem(KEY,nxt);}catch(e){}
+      sync();
+    });
+    document.addEventListener("keydown",function(e){
+      if(e.altKey&&(e.key==="t"||e.key==="T")) b.click();
+    });
+    sync();
+  });
+})();
+</script>
+<script>
+window.MathJax={tex:{inlineMath:[['\\(','\\)'],['$','$']],displayMath:[['\\[','\\]'],['$$','$$']]},
+options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>因果推断实战：R 语言实现（中文译本）</title>
+<style>
+:root{
+  --bg:#f7f7f5; --card:#ffffff; --text:#2c2c2a; --muted:#6b6a65;
+  --line:#e3e2dd; --accent:#534ab7; --accent-soft:#eeedfe; --tag:#f1efe8;
+  --code-bg:#f4f3ef; --code-line:#e7e5df; --code-text:#2c2c2a;
+  --note-bg:#eef6ff; --note-line:#bcd6f5; --note-text:#1f3a5f;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;line-height:1.8;margin:0}
+.wrap{max-width:900px;margin:0 auto;padding:32px 22px 80px}
+.topbar{margin-bottom:26px;display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--accent);text-decoration:none;font-size:14px;font-weight:600}
+.back:hover{text-decoration:underline}
+.chpos{font-size:13px;color:var(--muted);letter-spacing:.04em}
+h1{font-size:30px;font-weight:700;letter-spacing:-.3px;margin:6px 0 4px;line-height:1.3}
+.sub{color:var(--muted);font-size:14px;margin-bottom:8px}
+.sub a{color:var(--accent)}
+.lead{font-size:16px;color:var(--text);margin:14px 0 22px;border-left:3px solid var(--accent);padding:4px 0 4px 16px;background:var(--accent-soft);border-radius:0 8px 8px 0}
+.content h2{font-size:22px;font-weight:700;margin:38px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.content h3{font-size:18px;font-weight:700;margin:26px 0 10px}
+.content h4{font-size:16px;font-weight:700;margin:20px 0 8px}
+.content p{margin:12px 0}
+.content ul,.content ol{margin:12px 0;padding-left:26px}
+.content li{margin:6px 0}
+.content a{color:var(--accent);text-decoration:none}
+.content a:hover{text-decoration:underline}
+.content img{max-width:100%;height:auto;border:1px solid var(--line);border-radius:8px;margin:14px 0;background:#fff;display:block}
+.content blockquote{margin:14px 0;padding:10px 16px;border-left:3px solid var(--line);background:var(--tag);border-radius:0 8px 8px 0;color:var(--muted)}
+.note{margin:18px 0;padding:14px 18px;border:1px solid var(--note-line);background:var(--note-bg);border-radius:10px;color:var(--note-text)}
+.note .nt{display:inline-block;font-weight:700;font-size:13px;letter-spacing:.04em;margin-bottom:6px;color:var(--accent)}
+.note p{margin:6px 0}
+.rulebox{margin:18px 0;padding:14px 18px;border-radius:10px;background:#5ADDD7;color:#0c2c2a}
+.rulebox h3{margin:0 0 6px;color:#0c2c2a}
+.rulebox p{margin:0;font-weight:400;color:#0c2c2a}
+.toc{margin:22px 0;padding:16px 20px;border:1px solid var(--line);background:var(--card);border-radius:10px}
+.toc .ttl{font-weight:700;font-size:14px;color:var(--muted);margin-bottom:8px;letter-spacing:.04em}
+.toc ol{margin:0;padding-left:22px;columns:2;column-gap:28px}
+.toc li{margin:4px 0;font-size:14.5px}
+.toc a{color:var(--text)}
+.foot{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.foot a{color:var(--accent)}
+.csl-entry{margin:8px 0;font-size:13.5px;line-height:1.6;padding-left:14px;text-indent:-14px}
+pre{background:var(--code-bg);border:1px solid var(--code-line);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.6;color:var(--code-text);margin:14px 0}
+pre code{background:none;border:none;padding:0;font-size:inherit;color:inherit}
+code{background:var(--code-bg);border:1px solid var(--code-line);border-radius:4px;padding:1px 5px;font-size:.92em;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--tag);font-weight:700}
+.pager{display:flex;justify-content:space-between;gap:12px;margin-top:40px;flex-wrap:wrap}
+.pager a{flex:1 1 45%;min-width:200px;padding:12px 16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);text-decoration:none;font-size:14px}
+.pager a:hover{border-color:var(--accent);color:var(--accent)}
+.pager .next{text-align:right}
+.pager .disabled{opacity:.35;pointer-events:none}
+:root[data-theme="dark"]{--bg:#0f1116;--card:#181b22;--text:#e4e6ea;--muted:#98a0ac;--line:#2a2f3a;--accent:#7aa2f7;--accent-soft:#16203a;--tag:#1e222b;--code-bg:#0b0d12;--code-line:#1d2129;--code-text:#d7dae0;--note-bg:#15233b;--note-line:#274168;--note-text:#bcd6f5}
+:root[data-theme="dark"] .content img{background:#0b0d12}
+:root[data-theme="dark"] .rulebox{background:#1c5b56;color:#d6f5f1}
+:root[data-theme="dark"] .toc{background:var(--card)}
+.tt{position:fixed;top:16px;right:16px;z-index:9999;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;color:var(--text);background:var(--card);border:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.24)}
+.tt:hover{transform:translateY(-1px);border-color:var(--accent)}
+.tt svg{display:none}
+[data-theme="dark"] .ico-sun{display:block}
+[data-theme="dark"] .ico-moon{display:none}
+[data-theme="light"] .ico-sun{display:none}
+[data-theme="light"] .ico-moon{display:block}
+@media(max-width:640px){.tt{top:10px;right:10px;width:36px;height:36px}}
+@media print{.tt{display:none}}
+</style>
+</head>
+<body>
+<button id="theme-toggle" class="tt" type="button" aria-label="切换明暗主题" title="切换明暗主题 (Alt+T)">
+  <svg class="ico-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12H5M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
+  <svg class="ico-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 14.5A8.2 8.2 0 0 1 9.5 4a8.2 8.2 0 1 0 10.5 10.5z"/></svg>
+</button>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="../index.html">&larr; 返回全书目录</a>
+    <span class="chpos">共 14 章</span>
+  </div>
+  <h1>因果推断实战：R 语言实现（中文译本）</h1>
+  <p class="sub">《Causal Inference in R》中文译本 · 原著 Kamran Afzali · <a href="https://kamran-afzali.github.io/Bookdown_Causality/">英文原文</a> · 非官方翻译，仅供学习交流</p>
+  <div class="content">
+<p class="lead">《Causal Inference in R》是 Kamran Afzali 撰写的因果推断在线书，用 R 语言贯通从随机对照试验到机器学习的完整方法谱系：RCT 与回归调整、DAG、倾向得分与双稳健估计、双重差分、工具变量、断点回归、因果森林、贝叶斯结构时间序列、元学习器、TMLE、g-计算、结构方程模型、双重机器学习。本页为全书中文译本。</p>
+<div class="toc"><div class="ttl">全书目录（14/14 章已上线）</div><ol><li><a href="chapters/ch01-foundations.html"><b>第 1 章</b> 因果统计分析基础<span class="en">Foundations of Causal Statistical Analysis</span></a></li><li><a href="chapters/ch02-rct.html"><b>第 2 章</b> 随机对照试验与回归调整<span class="en">Randomized Controlled Trials and Regression Adjustment</span></a></li><li><a href="chapters/ch03-propensity.html"><b>第 3 章</b> 倾向得分、双稳健估计量与逆概率加权<span class="en">Propensity Scores, Doubly Robust Estimators, and Inverse Probability Weighting</span></a></li><li><a href="chapters/ch04-did.html"><b>第 4 章</b> 双重差分及其医疗应用<span class="en">Difference-in-Differences with a Healthcare Application</span></a></li><li><a href="chapters/ch05-iv.html"><b>第 5 章</b> 工具变量<span class="en">Instrumental Variables</span></a></li><li><a href="chapters/ch06-rdd.html"><b>第 6 章</b> 断点回归设计<span class="en">Regression Discontinuity Design</span></a></li><li><a href="chapters/ch07-causal-forests.html"><b>第 7 章</b> 因果森林<span class="en">Causal Forests</span></a></li><li><a href="chapters/ch08-bsts.html"><b>第 8 章</b> 用于因果推断的贝叶斯结构时间序列<span class="en">Bayesian Structural Time Series for Causal Inference</span></a></li><li><a href="chapters/ch09-meta-learners.html"><b>第 9 章</b> 面向异质处理效应的元学习器<span class="en">Meta-Learners for Heterogeneous Treatment Effects</span></a></li><li><a href="chapters/ch10-tmle.html"><b>第 10 章</b> 面向医疗稳健因果推断的靶向极大似然估计<span class="en">Targeted Maximum Likelihood Estimation for Robust Causal Inference in Healthcare</span></a></li><li><a href="chapters/ch11-g-computation.html"><b>第 11 章</b> 用于因果推断的 g-计算<span class="en">G-Computation for Causal Inference</span></a></li><li><a href="chapters/ch12-sem.html"><b>第 12 章</b> 医疗研究中的结构方程模型：解析复杂因果通路<span class="en">Structural Equation Modeling for Healthcare Research: Unraveling Complex Causal Pathways</span></a></li><li><a href="chapters/ch13-dag.html"><b>第 13 章</b> 有向无环图：描绘医疗决策的因果架构<span class="en">Directed Acyclic Graphs: Mapping the Causal Architecture of Healthcare Decisions</span></a></li><li><a href="chapters/ch14-dml.html"><b>第 14 章</b> 双重机器学习<span class="en">Double Machine Learning</span></a></li></ol></div>
+<h2>关于本书与译本</h2><p>原书以医疗健康研究为应用场景组织全书，每章包含方法讲解、R 代码示例与讨论；中文译本在保留全部章节、代码、公式与图表的基础上，于关键概念处补充「背景与解释」框，专门面向医学研究者铺垫流行病学与生物统计的对应概念。</p><p>全书共 14 章，建议按顺序阅读：第 1 章给出全书地图与术语总表，第 2–6 章覆盖经典识别设计（RCT / DiD / IV / RDD），第 7–14 章进入机器学习与半参数方法（因果森林 / 元学习器 / TMLE / DML / SEM 等）。</p>
+<h2>声明</h2><p>本译本为个人学习用途的<strong>非官方翻译</strong>，版权归原作者及原书所有，引用请以英文原文为准。原书：<a href="https://kamran-afzali.github.io/Bookdown_Causality/">kamran-afzali.github.io/Bookdown_Causality</a> · 原书仓库：<a href="https://github.com/Kamran-Afzali/Bookdown_Causality">Kamran-Afzali/Bookdown_Causality</a>。</p>
+  </div>
+  <div class="pager">
+    <a class="prev" href="index.html">← 返回 share 站点</a>
+    <a class="next " href="chapters/ch01-foundations.html">开始阅读：第 1 章 →</a>
+  </div>
+  <div class="foot">《Causal Inference in R》（Kamran Afzali，2026-01-17）个人学习用途非官方中文译本。引用请以 <a href="https://github.com/Kamran-Afzali/Bookdown_Causality">英文原文</a> 为准。</div>
+</div>
+</body>
+</html>
