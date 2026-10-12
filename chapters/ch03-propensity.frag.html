@@ -1,0 +1,215 @@
+<h2><span class="header-section-number">3.1</span> 倾向得分方法</h2>
+<p>上一篇（第 2 章）我们讨论了随机对照试验（RCT）与回归调整的基础。在真实的观察性数据中，要实现协变量平衡十分困难，而简单的回归模型又严重依赖于条件独立性假设与正确的模型设定。基于倾向得分（propensity score）的方法——包括匹配（matching）、逆概率加权（Inverse Probability Weighting, IPW）和双稳健估计（doubly robust estimation）——提供了合适的替代方案。这些方法缓解了部分假设的要求，但引入了另一些假设，例如正值性（positivity）与模型正确性。本章将阐述它们的理论动机，推导正式的估计量，并在 R 中演示实现。</p>
+<p>倾向得分方法的作用是模仿随机试验，在处理组之间平衡已观测的混杂因子（confounder）。<strong>倾向得分</strong> <span class="math inline">\(e(x) = P(D=1 \mid X=x)\)</span> 将多变量的协变量信息压缩为单个标量。在<strong>条件可忽略性</strong>（conditional ignorability，<span class="math inline">\(Y(1),Y(0) \perp D \mid X\)</span>）与<strong>重叠性</strong>（overlap，<span class="math inline">\(0 &lt; e(x) &lt; 1\)</span>）假设下，调整 <span class="math inline">\(e(x)\)</span> 就足以消除由已观测协变量造成的偏倚。</p>
+<p>形式上，记<strong>倾向得分调整估计量</strong>为：</p>
+<p><span class="math display">\[
+\widehat{\text{ATE}} = \frac{1}{n} \sum_{i=1}^n \left( \frac{D_i Y_i}{\hat e(X_i)} - \frac{(1-D_i)Y_i}{1 - \hat e(X_i)} \right).
+\]</span></p>
+<p>实践中，人们通常用逻辑回归（logistic regression）来建模 <span class="math inline">\(e(x)\)</span>：</p>
+<pre class="sourceCode r"><code class="sourceCode r">library(tidyverse)
+
+set.seed(42)
+n &lt;- 2000
+x1 &lt;- rnorm(n)
+x2 &lt;- rbinom(n,1,0.3)
+e &lt;- plogis(-0.5 + 0.8 * x1 - 0.4 * x2)
+d &lt;- rbinom(n,1,e)
+y &lt;- 3 + 2 * d + 1.2 * x1 - 0.5 * x2 + rnorm(n)
+data &lt;- tibble(x1, x2, treatment = d, outcome = y)
+
+ps_model &lt;- glm(treatment ~ x1 + x2, data = data, family = binomial)
+data &lt;- data %&gt;% mutate(pscore = predict(ps_model, type = "response"))
+
+ggplot(data, aes(x = pscore, color = factor(treatment))) +
+  geom_density() +
+  labs(title = "Propensity Score by Treatment Group")</code></pre>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-5-1.png" width="672" alt="按处理组着色的倾向得分密度图" /></p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>倾向得分由 Rosenbaum 和 Rubin 于 1983 年提出，被称为「观察性研究因果效应的平衡得分（balancing score）」。对临床研究者来说，最容易的理解方式是：它回答「一个具有协变量 <span class="math inline">\(X\)</span> 的患者，实际接受治疗的概率有多大」。在病例对照研究、医保数据库研究或电子病历（EHR）研究中，治疗选择从不是随机的——病情更重的患者往往更可能用上新药——直接比较两组结局就会把「疾病严重程度」的效应误记到「治疗」头上。倾向得分的妙处在于：Rosenbaum 和 Rubin 证明，只需按这一个标量分层或加权，就能在已观测协变量上模拟随机化，而不必把十几个协变量同时塞进结局模型。这就是它在观察性研究中长盛不衰的原因。</p>
+</div>
+<p>下面用匹配法估计 ATE：</p>
+<pre class="sourceCode r"><code class="sourceCode r">library(MatchIt)
+match_out &lt;- matchit(treatment ~ x1 + x2, data = data, method = "nearest", ratio = 1)
+matched &lt;- match.data(match_out)
+lm_matched &lt;- lm(outcome ~ treatment, data = matched)
+summary(lm_matched)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = outcome ~ treatment, data = matched)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -4.5247 -1.0339  0.0542  1.0316  4.3563 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  3.13150    0.05470   57.25   &lt;2e-16 ***
+## treatment    2.24252    0.07736   28.99   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 1.484 on 1470 degrees of freedom
+## Multiple R-squared:  0.3637, Adjusted R-squared:  0.3633 
+## F-statistic: 840.3 on 1 and 1470 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>控制台输出解读：<code>treatment</code> 行的 Estimate 为 2.24252，即匹配样本中处理相对于对照的结局差异。注意自由度只剩 1470——2000 例中约 530 例因找不到合适对照而被丢弃，样本量损耗是匹配法的常见代价。</p>
+<pre class="sourceCode r"><code class="sourceCode r">lm_non_matched &lt;- lm(outcome ~ treatment, data = data)
+summary(lm_non_matched)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = outcome ~ treatment, data = data)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -4.9920 -1.0709  0.0172  1.0472  4.7084 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  2.51663    0.04359   57.73   &lt;2e-16 ***
+## treatment    2.85739    0.07186   39.77   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 1.55 on 1998 degrees of freedom
+## Multiple R-squared:  0.4418, Adjusted R-squared:  0.4415 
+## F-statistic:  1581 on 1 and 1998 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>控制台输出解读：这是<strong>不调整混杂</strong>的粗比较——结局直接对处理做回归，treatment 系数为 2.85739。数据生成时真实 ATE 为 2（结局方程中 <code>2 * d</code>），而粗比较给出 2.86，向上偏倚约 0.86，正是因为 <code>x1</code>、<code>x2</code> 既影响治疗分配又影响结局。匹配后的估计 2.24252 明显更接近真值，直观展示了「平衡协变量」如何消除观察性比较中的混杂偏倚。</p>
+<pre class="sourceCode r"><code class="sourceCode r">plot(match_out, type = "qq", interactive = FALSE)</code></pre>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-6-1.png" width="672" alt="匹配后处理组与对照组倾向得分的 QQ 图" /></p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>匹配做完<strong>不等于</strong>完事，必须做协变量平衡检查。最常用的指标是标准化均数差（standardized mean difference, SMD）：对每个协变量计算两组的均值差除以合并标准差，<span class="math inline">\(|SMD| &lt; 0.1\)</span> 通常被认为平衡可接受（更严格的要求是 0.05）。为什么不用 t 检验看 P 值？因为 SMD 不受样本量影响，而 P 值在大样本中连微不足道的差异也会判「显著」，误导读者。MatchIt 的 <code>plot(match_out, type = "jitter")</code>（原文提示的诊断图）和 QQ 图从分布层面展示平衡：两条曲线越贴合，说明加权/匹配后两组的倾向得分分布越一致。医学期刊（如 STROBE 指南）已普遍要求报告匹配或加权后的 SMD 表，这是观察性研究可信度的门面。</p>
+</div>
+<p>这里，<code>coefficients()</code> 给出的处理效应即匹配单元的 ATE，其解释依赖于「<span class="math inline">\(X\)</span> 已平衡」这一假设。诊断检查应包括匹配后的协变量平衡核查（例如 <code>plot(match_out, type="jitter")</code>）。</p>
+<h2><span class="header-section-number">3.2</span> 逆概率加权（IPW）</h2>
+<p>IPW 利用<strong>基于倾向得分的加权</strong>对样本重新加权，使得加权后的处理组与对照组变得可交换（exchangeable）。每个个体的权重为：</p>
+<p><span class="math display">\[
+w_i = \frac{D_i}{\hat e(X_i)} + \frac{1-D_i}{1-\hat e(X_i)}.
+\]</span></p>
+<p>于是，</p>
+<p><span class="math display">\[
+\widehat{\text{ATE}}_{\text{IPW}} = \frac{\sum_i w_i Y_i}{\sum_i w_i}.
+\]</span></p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>IPW 与标准化（standardization，即 g-计算）是最常被混淆的一对方法，区别在于<strong>目标总体</strong>：IPW 给每个个体乘上「被观测到的分配概率的倒数」，等效于构造一个<strong>全体目标人群</strong>的伪总体（pseudo-population），在这个伪总体里治疗分配与已观测协变量独立；标准化则是把结局模型在全体人群中按协变量分布求平均，直接估计「如果所有人都治疗 vs 都不治疗」的均值差。两者估计的都是 ATE，但 IPW 的权重天生不稳健——当倾向得分接近 0 或 1 时权重爆炸，这就是后文要说的极端权重问题。临床研究中，当治疗组很小而对照组很大（如罕见手术）、或存在时变混杂（如 HIV 研究中的依从性）时，IPW 及其边际结构模型（MSM）扩展几乎是唯一可行的选择；Hernán 和 Robins 的《Causal Inference: What If》对这一点有经典论述。</p>
+</div>
+<p>IPW 无需显式建模 <span class="math inline">\(E[Y \mid D, X]\)</span> 即可估计 ATE，但其有效性关键取决于倾向得分设定正确以及重叠性足够稳定。</p>
+<pre class="sourceCode r"><code class="sourceCode r">library(survey)</code></pre>
+<pre><code>## Loading required package: grid</code></pre>
+<pre><code>## Loading required package: Matrix</code></pre>
+<pre><code>## 
+## Attaching package: 'Matrix'</code></pre>
+<pre><code>## The following objects are masked from 'package:tidyr':
+## 
+##     expand, pack, unpack</code></pre>
+<pre><code>## Loading required package: survival</code></pre>
+<pre><code>## 
+## Attaching package: 'survey'</code></pre>
+<pre><code>## The following object is masked from 'package:graphics':
+## 
+##     dotchart</code></pre>
+<p>控制台输出解读：加载 survey 包时会自动挂载若干依赖包并屏蔽部分同名函数（如 tidyr 的 expand/pack/unpack、graphics 的 dotchart）。这些提示是信息性的，不影响分析；若后续代码里恰好用到被屏蔽的函数，需要用 <code>tidyr::expand()</code> 这类显式命名空间调用。</p>
+<pre class="sourceCode r"><code class="sourceCode r">data$wt &lt;- with(data, ifelse(treatment == 1, 1/pscore, 1/(1-pscore)))
+design &lt;- svydesign(ids = ~1, weights = ~wt, data = data)
+ipw_mod &lt;- svyglm(outcome ~ treatment, design = design)
+summary(ipw_mod)</code></pre>
+<pre><code>## 
+## Call:
+## svyglm(formula = outcome ~ treatment, design = design)
+## 
+## Survey design:
+## svydesign(ids = ~1, weights = ~wt, data = data)
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  2.86192    0.05166   55.40   &lt;2e-16 ***
+## treatment    1.84788    0.09692   19.07   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## (Dispersion parameter for gaussian family taken to be 2.628476)
+## 
+## Number of Fisher Scoring iterations: 2</code></pre>
+<p>控制台输出解读：<code>treatment</code> 系数 1.84788 即 IPW 估计的 ATE，同样接近真值 2。注意这里用了 <code>svydesign()</code> + <code>svyglm()</code> 的组合：把逆概率权重视为「抽样权重」，从而让加权回归自动得到正确的标准误——这比手动用 <code>lm(..., weights = wt)</code> 更稳妥，因为后者对权重的解释不同。最后一行报告高斯家族的离散参数（dispersion parameter）为 2.628476，即残差方差，用于校准标准误。</p>
+<p><strong>处理（treatment）</strong>的系数给出 IPW 估计的 ATE。必须用汇总统计（<code>summary(data_obs$wt)</code>）检查<strong>极端权重</strong>（extreme weights），并考虑截尾（trimming）。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>极端权重是 IPW 在临床数据中最常见的失败模式：当某位患者的倾向得分接近 1（例如重症几乎必然用 ICU），其对照身份的权重就是 1/(1-e) ≈ 上百甚至上千，一个个体几乎「代表」了整个对照组，ATE 的方差随之爆炸。实操上的对策包括：（1）用权重分布的分位数（如 99 分位）报告，看最大权重是否远离中位数；（2）稳定化权重（stabilized weights），即用边缘概率 <span class="math inline">\(P(D=1)\)</span> 作分子的修正形式，可显著降低权重方差；（3）截尾（trimming）或按分位数缩尾（winsorizing）；（4）回到正值性本身——若某协变量组合下几乎没有对照组信息，任何加权方法都无能为力，此时应如实报告「正值性假设在该亚组不成立」，而不是硬估。医学文献里常见的错误是只报告加权后的效应量而不报告权重分布，读者无法判断结果是稳健还是被少数极端个体绑架。</p>
+</div>
+<h2><span class="header-section-number">3.3</span> 双稳健估计量</h2>
+<p>双稳健估计量（doubly robust estimator）将结局建模与倾向得分加权结合起来，使得只要<strong>其中任意一个</strong>模型设定正确，估计就是一致的（consistent）。其标准形式为：</p>
+<p><span class="math display">\[
+\widehat{\text{ATE}}_{\text{DR}} = \frac{1}{n} \sum_{i=1}^{n} \left[ m_1(X_i) - m_0(X_i) + \frac{D_i(Y_i - m_1(X_i))}{\hat{e}(X_i)} - \frac{(1 - D_i)(Y_i - m_0(X_i))}{1 - \hat{e}(X_i)} \right]
+\]</span></p>
+<p>其中 <span class="math inline">\(\hat m(D, X)\)</span> 是结局对处理与协变量回归得到的估计。</p>
+<pre class="sourceCode r"><code class="sourceCode r">om_mod &lt;- lm(outcome ~ treatment + x1 + x2, data = data)
+data$mu1_hat &lt;- predict(om_mod, newdata = transform(data, treatment = 1))
+data$mu0_hat &lt;- predict(om_mod, newdata = transform(data, treatment = 0))
+
+# 双稳健 ATE
+dr_ate &lt;- with(data, mean((treatment/pscore - (1-treatment)/(1-pscore))*(outcome - (treatment*mu1_hat + (1-treatment)*mu0_hat)) + mu1_hat - mu0_hat))
+dr_ate</code></pre>
+<pre><code>## [1] 1.903413</code></pre>
+<p>控制台输出解读：<code>dr_ate</code> 为 1.903413，是三种方法中最接近真值 2 的估计。代码逻辑是：先用结局模型预测每个人在两种处理下的反事实结局 <code>mu1_hat</code>/<code>mu0_hat</code>，再用 IPW 权重修正预测残差——若结局模型对，权重只是「配角」；若权重模型对，结局模型的错误又被残差修正项抵消。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>双稳健估计之所以备受青睐（Bang &amp; Robins 2005；Robins &amp; Rotnitzky 1995），是因为它把「押注一个模型」变成「押注两个模型中较好的一个」：结局模型误设时，倾向得分项挽救一致性；倾向得分误设（如遗漏了非线性项）时，结局模型项挽救一致性。这让研究者在报告观察性研究效应时多了一层保护。但要警惕三点：（1）双稳健不保护<strong>未观测混杂</strong>——混杂因子没测到，两个模型都救不了；（2）「双稳健」指大样本一致性，有限样本下方差可能比单一方法更大；（3）现代扩展（增强逆概率加权 AIPW、TMLE）把同一思想与机器学习结合，用交叉拟合（cross-fitting）避免过拟合，是当前因果推断的前沿工具。本系列后续章节会详细展开。</p>
+</div>
+<p>这个 <code>dr_ate</code> 估计是<strong>双稳健</strong>的：只要倾向得分模型或结局模型之一正确，它就是一致的。实际使用中通常用自助抽样（bootstrapping）来估计方差。</p>
+<h2><span class="header-section-number">3.4</span> 综合解读</h2>
+<p>倾向得分以一种源于设计（design）思想的方式调整已观测混杂因子，构造出一个「伪随机化试验」。IPW 通过加权把这一思想推进一步，创造出一个合成总体（synthetic population）。双稳健方法则防范加权模型或结局模型中任一者的误设——从而在更宽泛的条件下保证 ATE 估计的有效性。</p>
+<p>然而，每种方法都锚定在几个核心假设上：<strong>可忽略性</strong>（ignorability）、<strong>重叠性</strong>（overlap）与<strong>模型正确性</strong>（model correctness）。在作出任何因果结论之前，诊断检查——如匹配/IPW 后的平衡核查、权重汇总、残差与结局模型验证——都是必不可少的。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>把三种方法放回临床研究的时间线（TTE，即 target trial emulation，靶试验仿真）框架下看：倾向得分匹配回答的是「能不能找到一对条件相当的病人」；IPW 回答的是「能不能把病人重加权成一个人群」；双稳健则是「两套机制互为备份」。它们的共同软肋在 DAG（有向无环图）层面一目了然：只要存在从某个未测量变量 <span class="math inline">\(U\)</span> 同时指向处理 <span class="math inline">\(D\)</span> 和结局 <span class="math inline">\(Y\)</span> 的箭头，可忽略性即被违反，本章所有估计量都会产生偏倚。因此，严谨的观察性研究在报告倾向得分分析之前，应当先用 DAG 列出所有已知的 <span class="math inline">\(D-Y\)</span> 通路，论证「已无未测混杂」为何合理，并用阴性对照、敏感性分析（如 E 值）等手段加固结论。</p>
+</div>
+<h2><span class="header-section-number">3.5</span> 汇总表</h2>
+<table>
+<colgroup>
+<col width="17%" />
+<col width="20%" />
+<col width="15%" />
+<col width="26%" />
+<col width="19%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>方法</th>
+<th>模型要求</th>
+<th>一致性条件</th>
+<th>估计量公式</th>
+<th>主要优势</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>倾向得分匹配</td>
+<td>对 <span class="math inline">\(e(x)\)</span> 的逻辑回归</td>
+<td>倾向得分估计正确</td>
+<td>匹配后的均值差</td>
+<td>平衡协变量；模仿试验设计</td>
+</tr>
+<tr class="even">
+<td>逆概率加权（IPW）</td>
+<td>对 <span class="math inline">\(e(x)\)</span> 的逻辑回归</td>
+<td>倾向得分估计正确</td>
+<td>加权回归或加权均值差</td>
+<td>构造加权的、可交换的样本</td>
+</tr>
+<tr class="odd">
+<td>双稳健估计量</td>
+<td>对 <span class="math inline">\(e(x)\)</span> 的逻辑回归<em>或</em>结局 <span class="math inline">\(m(D,X)\)</span></td>
+<td>任一模型设定正确</td>
+<td>结合加权残差与条件均值的 ATE</td>
+<td>对模型误设稳健、高效</td>
+</tr>
+</tbody>
+</table>
+<h2><span class="header-section-number">3.6</span> 结论</h2>
+<p>本章推进了本系列的进程，探讨了在随机化与建模之间架设桥梁的方法。倾向得分、IPW 与双稳健估计量为应对混杂提供了互补的策略，每种方法在假设、稳定性与可解释性方面都伴随着独特的权衡。下一篇将探讨匹配、双重差分（DiD）与工具变量（IV），为复杂的真实世界数据提供更深入的方法与工具。</p>
+<h2><span class="header-section-number">3.7</span> 参考文献</h2>
+<p>Rosenbaum, P. R., &amp; Rubin, D. B. (1983). The central role of the propensity score in observational studies for causal effects. Biometrika, 70(1), 41–55.（中文题名：《倾向得分在观察性研究因果效应中的核心作用》）</p>
+<p>Robins, J. M., &amp; Rotnitzky, A. (1995). Semiparametric efficiency in multivariate regression models with missing data. Journal of the American Statistical Association, 90(429), 122–129.（中文题名：《含缺失数据的多元回归模型中的半参数有效性》）</p>
+<p>Bang, H., &amp; Robins, J. M. (2005). Doubly robust estimation in missing data and causal inference models. Biometrics, 61(4), 962–973.（中文题名：《缺失数据与因果推断模型中的双稳健估计》）</p>
+<p>Hernán, M. A., &amp; Robins, J. M. (2020). Causal Inference: What If. Chapman &amp; Hall/CRC.（中文题名：《因果推断：What If》）</p>
