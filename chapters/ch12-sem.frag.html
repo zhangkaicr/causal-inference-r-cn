@@ -1,0 +1,668 @@
+<h2><span class="header-section-number">12.1</span> 引言</h2>
+<p>假设你正在评估一项新的糖尿病预防项目对患者结局的影响。该项目包含营养教育、运动咨询和压力管理三个组成部分。你观察到，六个月后参与者的血糖控制有所改善，但其作用机制仍不清楚。该项目主要通过改变饮食行为起效吗？运动是否扮演主导角色？减压之类的心理因素是否中介了身体健康方面的获益？回答这些问题，需要理解的不只是「干预是否有效」，而是它如何通过生物、行为与心理机制相互关联的通路起作用。</p>
+<p>传统回归分析难以应对这种复杂性，因为它孤立地处理每一对关系，忽略了真实世界健康过程所特有的、由直接效应与间接效应交织成的复杂网络。我们不能简单地把结局同时对所有潜在中介变量做回归，而不考虑它们的相互依赖性、自报行为中的测量误差，以及那些只能通过多个不完美指标间接观测的潜在心理构念。</p>
+<p>结构方程模型（Structural Equation Modeling, SEM）提供了一个统一框架来应对这些挑战：它同时估计多个回归方程，并显式地对测量误差和不可观测的潜在构念建模。与逐条通路分别分析的「分段回归」做法不同，SEM 把整个因果系统当作一个相互关联的整体，给出所有直接效应与间接效应的内在一致估计，同时让不确定性恰当地贯穿复杂的中介链传播。</p>
+<p>这种方法的力量在于，它能用观测数据检验特定的理论模型，从而在「干预如何产生效应」的多种竞争性解释之间作出甄别。就糖尿病预防项目而言，SEM 可以量化饮食改变与运动增加的相对重要性，估计总效应中有多大比例通过减压实现，并检验心理健康是否中介了行为改变与代谢结局之间的关系。这些机制性洞察把项目评估从简单的效力评估，转变为「哪些项目组分值得重点投入、哪些人群最适合特定干预策略」的可操作指导。</p>
+<p>SEM 融合了两个互补的建模框架，分别应对因果推断中的不同挑战。<strong>测量模型</strong>（measurement model）把不可观测的潜在构念与其可观测指标连接起来，显式处理会令传统回归估计产生偏倚的测量误差。<strong>结构模型</strong>（structural model）则规定变量间的因果关系，既包括已观测的特征，也包括来自测量模型的潜在构念。这种整合使研究者能够检验关于「心理构念、行为模式与健康结局如何互联」的复杂理论，同时承认我们的测量只是对所关心构念的不完美捕捉。</p>
+<p>以测量心血管病患者的抑郁严重程度为例。没有任何单一问题能完美捕捉「抑郁」这个多面构念，因此我们使用贝克抑郁量表（Beck Depression Inventory）这类工具，用多个条目评估情绪、精力、睡眠和认知。每个条目都提供关于潜在抑郁的噪声信号，既包含潜在构念的真实信息，也包含条目特有的测量误差。测量模型通过因子分析把这种关系形式化：假定个体 <span class="math inline">\(i\)</span> 在条目 <span class="math inline">\(j\)</span> 上的观测得分 <span class="math inline">\(Y_{ij}\)</span> 服从 <span class="math inline">\(Y_{ij} = \lambda_j \eta_i + \epsilon_{ij}\)</span> 的结构，其中 <span class="math inline">\(\eta_i\)</span> 代表个体 <span class="math inline">\(i\)</span> 真实但不可观测的抑郁水平，<span class="math inline">\(\lambda_j\)</span> 度量条目 <span class="math inline">\(j\)</span> 在抑郁因子上的载荷强度，<span class="math inline">\(\epsilon_{ij}\)</span> 捕捉该个体与该条目特有的测量误差。</p>
+<p>结构模型则通过联立方程组把潜在构念与观测变量联系起来。对心血管病患者，我们可以假设体力活动 <span class="math inline">\(X\)</span> 降低抑郁 <span class="math inline">\(\eta_1\)</span>，抑郁进而影响服药依从性 <span class="math inline">\(\eta_2\)</span>，最终影响临床结局 <span class="math inline">\(Y\)</span>。结构方程把这些关系形式化为 <span class="math inline">\(\eta_1 = \gamma_1 X + \zeta_1\)</span>、<span class="math inline">\(\eta_2 = \beta_{21} \eta_1 + \gamma_2 X + \zeta_2\)</span> 和 <span class="math inline">\(Y = \beta_Y \eta_2 + \gamma_Y X + \epsilon_Y\)</span>，其中希腊字母代表因果效应，误差项 <span class="math inline">\(\zeta\)</span> 和 <span class="math inline">\(\epsilon\)</span> 捕捉各环节无法解释的变异。</p>
+<p>这一联立方程组体系是 SEM 区别于「序贯回归」的关键。当我们估计抑郁对依从性的效应时，SEM 会自动考虑「我们此前用同一批数据估计了抑郁的决定因素」这一事实，对这种相互依赖性恰当地调整标准误和参数估计。该方法让不确定性贯穿整个因果链传播——因为我们对早期关系的认识不完美，必然影响下游效应估计的精度。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>临床研究者读到这里最自然的疑问是：SEM 和本书前面讲的 DAG（有向无环图）是什么关系？简单说，<strong>SEM 的路径图就是 DAG 的一种「带参数的化身」</strong>：DAG 用箭头表达定性因果假设（谁影响谁），SEM 在同样的箭头上标注待估的回归系数、残差协方差与因子载荷，并假定这些关系大多是线性的、误差是正态的。DAG 关心「哪些路径需要阻断才能识别因果效应」（后门准则），SEM 关心「给每条路径一个数值」。因此在报告顺序上，正确做法是先用 DAG 把混杂结构想清楚，再把 DAG 翻译成 SEM 的路径图——跳过 DAG 直接拟合 SEM，很容易把「相关结构拟合得好」误当成「因果假设成立」。</p>
+</div>
+<p>SEM 的因果解释依赖于强有力的结构假设，研究者必须通过理论与设计来论证其合理性。该方法假定我们已经正确规定了所有相关因果关系，且没有遗漏所建模关系的重要混杂因子。这一要求远比简单回归苛刻，因为 SEM 模型通常包含多个内生变量，而它们彼此之间的关系也可能受到混杂。以抑郁影响依从性为例，我们必须假设：在条件于已纳入协变量后，没有未测量变量同时影响这两个构念——随着模型日益复杂，这一假设越来越难以成立。</p>
+<p>识别问题（identification problem）问的是：变量间观测到的协方差结构是否包含足够的信息，来唯一确定所有模型参数。当每个参数都对应一个能复现观测协方差的唯一解时，模型是<strong>可识别的</strong>（identified）。<strong>不可识别</strong>（underidentified）的模型容许无穷多组与数据一致的参数值，若无额外约束则无法估计。<strong>过度识别</strong>（overidentified）的模型施加了超出必要数量的约束，可以利用多余信息通过拟合优度统计量检验模型拟合。</p>
+<p>识别需要对模型结构与尺度设定格外小心。潜在变量没有固有尺度，因此我们必须通过两种方式之一为其锚定：把某个因子载荷固定为 1，或把潜在变量的方差标准化。在递归模型（recursive，所有因果效应单向流动、无反馈环）中，识别通常比非递归模型（非递归，含双向关系，需要工具变量或其他排他性约束）更容易实现。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>路径分析（path analysis）与潜变量模型（latent variable model）常被混为一谈，其实它们是 SEM 的两个特例：<strong>只含观测变量、不含潜在构念</strong>的 SEM 就是路径分析（心理学里 Wright 1920 年代的开创性工作）；<strong>引入因子与指标</strong>的才是完整的潜变量 SEM。临床研究中两者的取舍很实际：如果所有变量都是客观测量（血压、HbA1c、给药剂量），路径分析足够；如果涉及量表（如 SF-36、PHQ-9、生活质量评分），潜变量模型能把「真实构念」与「条目噪声」分离，估计出的构念间效应偏差更小——代价是样本量要求更高（粗略经验是每个自由参数至少 5–10 个观测），且识别问题更棘手。很多医学论文用「验证性因子分析 + 路径分析」两步走，正是出于这种务实考虑。</p>
+</div>
+<p>路径图为理解识别提供了极宝贵的直觉：它把因果关系可视化为从原因指向结果的箭头。没有入箭头的变量是<strong>外生变量</strong>（exogenous），其变异来自模型系统之外；有入箭头的是<strong>内生变量</strong>（endogenous），部分地由其他模型变量解释。弯曲的双向箭头表示变量间的协方差，而不断言因果方向。这种图形表示让模型假设透明化，并帮助识别威胁因果解释的潜在混杂或遗漏变量问题。</p>
+<h2><span class="header-section-number">12.2</span> 一项中介分析：体力活动、心理健康与糖尿病控制</h2>
+<p>我们构建一项全面的 SEM 分析，考察体力活动干预如何通过心理与行为机制影响 2 型糖尿病患者的血糖控制。我们的理论框架假定：结构化运动项目通过生物通路直接改善代谢功能，同时减轻抑郁症状，而后者又增强服药依从性与自我护理行为。在估计运动对代谢结局的直接效应、以及经由心理健康与依从行为传递的间接效应时，我们必须处理自报运动和抑郁中的测量误差。</p>
+<pre class="sourceCode r"><code class="sourceCode r"># 加载所需的 R 包
+if (!requireNamespace("lavaan", quietly = TRUE)) install.packages("lavaan")
+if (!requireNamespace("semPlot", quietly = TRUE)) install.packages("semPlot")
+if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
+if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr")
+
+library(lavaan)</code></pre>
+<pre><code>## Warning: package 'lavaan' was built under R version 4.5.1</code></pre>
+<pre><code>## This is lavaan 0.6-20
+## lavaan is FREE software! Please report any bugs.</code></pre>
+<p>控制台输出解读：加载成功，当前 lavaan 版本为 0.6-20。Warning 仅提示该包是在 R 4.5.1 下编译的，不影响使用。</p>
+<pre class="sourceCode r"><code class="sourceCode r">library(semPlot)</code></pre>
+<pre><code>## Warning: package 'semPlot' was built under R version 4.5.1</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">library(ggplot2)
+library(dplyr)
+
+# 设定随机种子以保证可重复
+set.seed(456)
+
+# 模拟具有真实临床特征的患者数据
+n &lt;- 800
+
+# 基线特征
+age &lt;- rnorm(n, 58, 10)
+bmi &lt;- rnorm(n, 32, 5)
+baseline_hba1c &lt;- rnorm(n, 8.2, 1.1)
+
+# 随机分配到运动干预组
+intervention &lt;- rbinom(n, 1, 0.5)
+
+# 真实潜在构念（实际研究中不可观测）
+exercise_level &lt;- 0.8 * intervention + 0.15 * (40 - age) / 10 - 
+                 0.1 * (bmi - 30) / 5 + rnorm(n, 0, 0.6)
+
+depression &lt;- 0.5 + 0.1 * bmi + 0.08 * baseline_hba1c - 
+             0.4 * exercise_level + rnorm(n, 0, 0.5)
+
+adherence &lt;- 0.6 - 0.45 * depression + 0.25 * exercise_level + 
+             rnorm(n, 0, 0.4)
+
+# 结局：HbA1c 变化（负值 = 改善）
+hba1c_change &lt;- 0.3 - 0.25 * exercise_level - 0.35 * adherence - 
+               0.15 * depression + 0.08 * baseline_hba1c + rnorm(n, 0, 0.6)
+
+# 为潜在构念生成多个指标
+# 抑郁指标（4 个条目，量表 0-3）
+dep_mood &lt;- pmax(0, pmin(3, depression + rnorm(n, 0, 0.4)))
+dep_energy &lt;- pmax(0, pmin(3, 0.9 * depression + rnorm(n, 0, 0.45)))
+dep_sleep &lt;- pmax(0, pmin(3, 0.85 * depression + rnorm(n, 0, 0.5)))
+dep_worth &lt;- pmax(0, pmin(3, 0.95 * depression + rnorm(n, 0, 0.4)))
+
+# 运动指标（3 个条目，量表 0-5）
+ex_frequency &lt;- pmax(0, pmin(5, exercise_level + rnorm(n, 0, 0.5)))
+ex_duration &lt;- pmax(0, pmin(5, 1.1 * exercise_level + rnorm(n, 0, 0.55)))
+ex_intensity &lt;- pmax(0, pmin(5, 0.95 * exercise_level + rnorm(n, 0, 0.6)))
+
+# 依从性指标（3 个条目，量表 0-4）
+adh_medication &lt;- pmax(0, pmin(4, adherence + rnorm(n, 0, 0.5)))
+adh_monitoring &lt;- pmax(0, pmin(4, 0.9 * adherence + rnorm(n, 0, 0.55)))
+adh_diet &lt;- pmax(0, pmin(4, 1.05 * adherence + rnorm(n, 0, 0.5)))
+
+# 创建数据集
+sem_data &lt;- data.frame(
+  intervention = intervention,
+  age = age,
+  bmi = bmi,
+  baseline_hba1c = baseline_hba1c,
+  dep_mood = dep_mood,
+  dep_energy = dep_energy,
+  dep_sleep = dep_sleep,
+  dep_worth = dep_worth,
+  ex_frequency = ex_frequency,
+  ex_duration = ex_duration,
+  ex_intensity = ex_intensity,
+  adh_medication = adh_medication,
+  adh_monitoring = adh_monitoring,
+  adh_diet = adh_diet,
+  hba1c_change = hba1c_change
+)
+
+cat("Dataset Summary:\n")</code></pre>
+<pre><code>## Dataset Summary:</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("Sample size:", n, "patients\n")</code></pre>
+<pre><code>## Sample size: 800 patients</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("Intervention group:", sum(intervention), "patients\n")</code></pre>
+<pre><code>## Intervention group: 402 patients</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("Control group:", sum(1 - intervention), "patients\n")</code></pre>
+<pre><code>## Control group: 398 patients</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("Mean HbA1c change (intervention):", 
+    round(mean(hba1c_change[intervention == 1]), 3), "\n")</code></pre>
+<pre><code>## Mean HbA1c change (intervention): 0.644</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("Mean HbA1c change (control):", 
+    round(mean(hba1c_change[intervention == 0]), 3), "\n")</code></pre>
+<pre><code>## Mean HbA1c change (control): 0.925</code></pre>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>这段模拟代码本身就是理解 SEM 因果假设的最佳教材。注意三个潜在构念（<code>exercise_level</code>、<code>depression</code>、<code>adherence</code>）在生成数据时是「真实存在」的连续变量，但 SEM 分析时<strong>看不到</strong>它们——只能看到 10 个带噪声的条目。这正是临床量表的日常处境：我们想推断「抑郁」「依从性」这些构念，手里却只有问卷作答。模拟还刻意让结局依赖于多个中介，因此粗看干预组 HbA1c 平均变化 0.644 小于对照组 0.925（差值约 -0.28，负值代表改善），但这个差值混合了直接效应、间接效应和基线 <code>baseline_hba1c</code> 的残余关联，必须靠模型分解。另一个关键点：干预是<strong>随机化</strong>的，所以「干预 → 中介」无混杂；但中介之间的路径（如抑郁 → 依从性）仍是观察性的，需要协变量调整——这一区别是后面所有中介解释的前提。</p>
+</div>
+<p>我们模拟的数据集代表一项运动干预的随机试验，纳入 800 名 2 型糖尿病患者。干预分配是随机的，这满足了最强的识别假设——保证干预的因果效应不受混杂影响。然而，中介变量——运动参与、抑郁与依从性——仍是观察性的，需要仔细建模它们的相互关系及潜在混杂因子。</p>
+<pre class="sourceCode r"><code class="sourceCode r"># 设定结构方程模型
+sem_model &lt;- '
+  # 测量模型：由指标定义潜在构念
+  depression =~ dep_mood + dep_energy + dep_sleep + dep_worth
+  exercise =~ ex_frequency + ex_duration + ex_intensity
+  adherence =~ adh_medication + adh_monitoring + adh_diet
+  
+  # 结构模型：因果关系
+  exercise ~ b1*intervention + age + bmi
+  depression ~ b2*exercise + b3*intervention + bmi + baseline_hba1c
+  adherence ~ b4*depression + b5*exercise + b6*intervention
+  hba1c_change ~ b7*exercise + b8*depression + b9*adherence + 
+                 b10*intervention + baseline_hba1c
+  
+  # 定义用于中介分析的间接效应
+  indirect_ex_dep := b2 * b8
+  indirect_ex_adh := b5 * b9
+  indirect_ex_dep_adh := b2 * b4 * b9
+  indirect_dep_adh := b4 * b9
+  
+  # 通过所有中介的总间接效应
+  total_indirect := b2*b8 + b5*b9 + b2*b4*b9 + (b2*b4 + b3)*b9 + b3*b8
+  
+  # 干预的总效应
+  total_effect := b10 + total_indirect
+'
+
+# 用极大似然估计拟合模型
+sem_fit &lt;- sem(sem_model, data = sem_data, 
+               fixed.x = FALSE,
+               std.lv = FALSE)</code></pre>
+<pre><code>## Warning: lavaan-&gt;lav_data_full():  
+##    some observed variances are (at least) a factor 1000 times larger than others; use varTable(fit) to investigate</code></pre>
+<p>控制台输出解读：这条 Warning 提示各观测变量的方差量级相差悬殊（<code>baseline_hba1c</code> 方差约 1.2，而 0–4 分量表条目的方差不足 1，且部分指标被截断在边界上），lavaan 建议用 <code>varTable()</code> 检查。量级差异会影响数值优化的收敛表现，但只要模型正常收敛，结果通常可用；更稳妥的做法是把连续变量标准化后再拟合。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>lavaan 的模型语法是 SEM 入门的门槛，记住四个运算符就够用了：<code>=~</code> 读作「由……测量」，定义测量模型（构念 =~ 指标）；<code>~</code> 读作「由……回归」，定义结构路径（结果 ~ 原因）；<code>:=</code> 定义新参数为已估参数的函数（本例全部用于间接效应）；<code>~~</code> 表示方差或协方差（未在本模型出现）。另一个常被问到的细节是第一个载荷：lavaan 默认把每个因子的第一个载荷固定为 1 来给潜变量「定标」（marker variable 法），本例因为设了 <code>std.lv = FALSE</code> 且未显式固定，摘要里 <code>dep_mood</code> 的 Estimate 恰好为 1.000——这就是默认的定标载荷，不是数据碰巧等于 1。</p>
+</div>
+<pre class="sourceCode r"><code class="sourceCode r"># 展示完整结果
+cat("\n=== MODEL FIT SUMMARY ===\n")</code></pre>
+<pre><code>## 
+## === MODEL FIT SUMMARY ===</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">summary(sem_fit, fit.measures = TRUE, standardized = TRUE, rsquare = TRUE)</code></pre>
+<pre><code>## lavaan 0.6-20 ended normally after 140 iterations
+## 
+##   Estimator                                         ML
+##   Optimization method                           NLMINB
+##   Number of model parameters                        46
+## 
+##   Number of observations                           800
+## 
+## Model Test User Model:
+##                                                       
+##   Test statistic                               118.436
+##   Degrees of freedom                                74
+##   P-value (Chi-square)                           0.001
+## 
+## Model Test Baseline Model:
+## 
+##   Test statistic                              2794.795
+##   Degrees of freedom                                99
+##   P-value                                        0.000
+## 
+## User Model versus Baseline Model:
+## 
+##   Comparative Fit Index (CFI)                    0.984
+##   Tucker-Lewis Index (TLI)                       0.978
+## 
+## Loglikelihood and Information Criteria:
+## 
+##   Loglikelihood user model (H0)              -5329.878
+##   Loglikelihood unrestricted model (H1)      -5270.660
+##                                                       
+##   Akaike (AIC)                               10751.756
+##   Bayesian (BIC)                             10967.249
+##   Sample-size adjusted Bayesian (SABIC)      10821.173
+## 
+## Root Mean Square Error of Approximation:
+## 
+##   RMSEA                                          0.027
+##   90 Percent confidence interval - lower         0.018
+##   90 Percent confidence interval - upper         0.036
+##   P-value H_0: RMSEA &lt;= 0.050                    1.000
+##   P-value H_0: RMSEA &gt;= 0.080                    0.000
+## 
+## Standardized Root Mean Square Residual:
+## 
+##   SRMR                                           0.025
+## 
+## Parameter Estimates:
+## 
+##   Standard errors                             Standard
+##   Information                                 Expected
+##   Information saturated (h1) model          Structured
+## 
+## Latent Variables:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   depression =~                                                         
+##     dep_mood          1.000                               0.081    0.713
+##     dep_energy        1.799    0.104   17.235    0.000    0.146    0.714
+##     dep_sleep         2.068    0.128   16.141    0.000    0.168    0.660
+##     dep_worth         1.490    0.084   17.793    0.000    0.121    0.746
+##   exercise =~                                                           
+##     ex_frequency      1.000                               0.407    0.741
+##     ex_duration       1.204    0.060   20.154    0.000    0.490    0.824
+##     ex_intensity      1.027    0.054   18.916    0.000    0.418    0.741
+##   adherence =~                                                          
+##     adh_medication    1.000                               0.056    0.603
+##     adh_monitoring    1.141    0.114   10.017    0.000    0.063    0.544
+##     adh_diet          0.840    0.080   10.528    0.000    0.047    0.645
+## 
+## Regressions:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   exercise ~                                                            
+##     intrvntn  (b1)    0.400    0.031   13.087    0.000    0.984    0.492
+##     age              -0.009    0.001   -6.370    0.000   -0.022   -0.219
+##     bmi              -0.009    0.003   -3.326    0.001   -0.023   -0.113
+##   depression ~                                                          
+##     exercise  (b2)   -0.049    0.010   -5.079    0.000   -0.244   -0.244
+##     intrvntn  (b3)   -0.003    0.007   -0.426    0.670   -0.036   -0.018
+##     bmi               0.007    0.001   11.003    0.000    0.086    0.427
+##     bsln_hb1          0.004    0.003    1.359    0.174    0.045    0.048
+##   adherence ~                                                            
+##     depressn  (b4)   -0.302    0.039   -7.778    0.000   -0.442   -0.442
+##     exercise  (b5)    0.030    0.008    3.797    0.000    0.222    0.222
+##     intrvntn  (b6)   -0.003    0.005   -0.520    0.603   -0.051   -0.026
+##   hba1c_change ~                                                        
+##     exercise  (b7)   -0.482    0.081   -5.935    0.000   -0.196   -0.290
+##     depressn  (b8)   -1.309    0.401   -3.260    0.001   -0.106   -0.157
+##     adherenc  (b9)   -1.829    0.679   -2.692    0.007   -0.102   -0.150
+##     intrvntn (b10)   -0.077    0.054   -1.415    0.157   -0.077   -0.057
+##     bsln_hb1          0.072    0.021    3.418    0.001    0.072    0.114
+## 
+## Covariances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##   intervention ~~                                                       
+##     age              -0.294    0.174   -1.696    0.090   -0.294   -0.060
+##     bmi               0.184    0.088    2.096    0.036    0.184    0.074
+##     baseline_hba1c   -0.020    0.019   -1.073    0.283   -0.020   -0.038
+##   age ~~                                                                
+##     bmi              -0.762    1.720   -0.443    0.658   -0.762   -0.016
+##     baseline_hba1c   -0.159    0.369   -0.430    0.667   -0.159   -0.015
+##   bmi ~~                                                                
+##     baseline_hba1c   -0.366    0.187   -1.953    0.051   -0.366   -0.069
+## 
+## Variances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##    .dep_mood          0.006    0.000   15.360    0.000    0.006    0.492
+##    .dep_energy        0.020    0.001   15.326    0.000    0.020    0.490
+##    .dep_sleep         0.037    0.002   16.563    0.000    0.037    0.565
+##    .dep_worth         0.012    0.001   14.363    0.000    0.012    0.444
+##    .ex_frequency      0.136    0.009   14.942    0.000    0.136    0.450
+##    .ex_duration       0.114    0.010   11.353    0.000    0.114    0.321
+##    .ex_intensity      0.144    0.010   14.969    0.000    0.144    0.451
+##    .adh_medication    0.005    0.000   14.075    0.000    0.005    0.636
+##    .adh_monitoring    0.010    0.001   15.706    0.000    0.010    0.704
+##    .adh_diet          0.003    0.000   12.667    0.000    0.003    0.584
+##    .hba1c_change      0.391    0.020   19.165    0.000    0.391    0.856
+##    .depression        0.005    0.000   10.174    0.000    0.739    0.739
+##    .exercise          0.115    0.011   10.822    0.000    0.693    0.693
+##    .adherence         0.002    0.000    6.710    0.000    0.707    0.707
+##     intervention      0.250    0.012   20.000    0.000    0.250    1.000
+##     age              96.145    4.807   20.000    0.000   96.145    1.000
+##     bmi              24.614    1.231   20.000    0.000   24.614    1.000
+##     baseline_hba1c    1.135    0.057   20.000    0.000    1.135    1.000
+## 
+## R-Square:
+##                    Estimate
+##     dep_mood          0.508
+##     dep_energy        0.510
+##     dep_sleep         0.435
+##     dep_worth         0.556
+##     ex_frequency      0.550
+##     ex_duration       0.679
+##     ex_intensity      0.549
+##     adh_medication    0.364
+##     adh_monitoring    0.296
+##     adh_diet          0.416
+##     hba1c_change      0.144
+##     depression        0.261
+##     exercise          0.307
+##     adherence         0.293
+## 
+## Defined Parameters:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)   Std.lv  Std.all
+##     indirect_ex_dp    0.064    0.024    2.704    0.007    0.026    0.038
+##     indirect_ex_dh   -0.055    0.024   -2.313    0.021   -0.023   -0.033
+##     indrct_x_dp_dh   -0.027    0.012   -2.302    0.021   -0.011   -0.016
+##     indirect_dp_dh    0.553    0.217    2.554    0.011    0.045    0.066
+##     total_indirect   -0.036    0.039   -0.934    0.350   -0.011   -0.022
+##     total_effect     -0.113    0.068   -1.654    0.098   -0.088   -0.079</code></pre>
+<p>控制台输出解读：这是全章最核心的一段输出，建议按四块阅读。（1）<strong>拟合与收敛</strong>：模型正常收敛（140 次迭代），46 个自由参数、800 个观测。（2）<strong>模型检验</strong>：卡方 118.436（df = 74，p = 0.001）——注意大样本下精确拟合检验几乎总是拒绝，别因此判「模型失败」，应接着看近似拟合指数。（3）<strong>近似拟合</strong>：CFI 0.984、TLI 0.978 均大于 0.95；RMSEA 0.027（90% CI 0.018–0.036）小于 0.06；SRMR 0.025 小于 0.08——全部表明拟合良好。（4）<strong>参数估计</strong>：Latent Variables 块是因子载荷（Std.all 列即标准化载荷，0.66–0.82 之间，测量质量不错）；Regressions 块是结构路径，其中 <code>exercise ~ intervention</code> 的 b1 = 0.400（干预显著提高运动水平），<code>hba1c_change ~ adherence</code> 的 b9 = -1.829（依从性越高，HbA1c 改善越大），而 <code>hba1c_change ~ intervention</code> 的 b10 = -0.077（p = 0.157，直接效应不显著）；Covariances 与 Variances 块给出外生变量间协方差和各残差方差；R-Square 块显示结局 <code>hba1c_change</code> 被模型解释的方差为 0.144。最后 Defined Parameters 块给出 6 个自定义参数（即各间接效应与总效应）的估计与标准误，例如 <code>indirect_ex_dp</code> = 0.064（p = 0.007）——注意 lavaan 为节省列宽把变量名截断成了缩写。</p>
+<p>模型设定明确区分了测量部分与结构部分。在测量模型中，我们用 <code>=~</code> 运算符（读作「由……测量」）从各自指标定义三个潜在构念。每个构念的第一个载荷是自由估计的，而非固定为 1，这让数据自行决定哪个指标最强地反映其潜在构念。结构模型使用带 <code>~</code> 运算符的标准回归语法来规定有向因果路径。我们用 <code>b1</code>、<code>b2</code> 等记号标注关键参数，以便后续计算间接效应。</p>
+<p><code>:=</code> 运算符把新参数定义为已估参数的函数，从而通过直接效应的组合实现中介分析。例如 <code>indirect_ex_dep := b2 * b8</code> 捕捉「干预通过提高运动水平、进而降低抑郁、最终改善血糖控制」这条通路贡献了多少效应。这些间接效应是特定因果链上路径系数的乘积，其标准误通过 delta 方法计算，以计入每个组成部分的不确定性。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>直接效应、间接效应与总效应的关系是：总效应 = 直接效应 + 各间接效应之和。在本例中，干预的总效应 <code>total_effect</code> = -0.113（HbA1c 下降 0.113），其中直接通路 b10 = -0.077，其余约 -0.036 经由中介传递。读这类结果时要记住两个「但是」：第一，间接效应的符号和大小依赖于<strong>线性、无交互</strong>假设——若干预与抑郁对依从性有交互，间接效应就不再是简单乘积；第二，SEM 估计的间接效应是「效应分解」意义上的，其因果解释要求中介–结局关系无未测混杂（12.3 节会展开）。另外，原书的 <code>total_indirect</code> 写法把所有中介链手工相加，路径一多就容易漏项，实践中更推荐用 lavaan 的 <code>fitted()</code> 或 <code>lavaan::lavInspect(fit, "symmetric")</code> 自动枚举全部有向路径，避免代数错误。</p>
+</div>
+<pre class="sourceCode r"><code class="sourceCode r"># 提取并整理参数估计
+params &lt;- parameterEstimates(sem_fit, standardized = TRUE)
+
+# 展示结构路径
+cat("\n=== STRUCTURAL PATH COEFFICIENTS ===\n")</code></pre>
+<pre><code>## 
+## === STRUCTURAL PATH COEFFICIENTS ===</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">structural_paths &lt;- params[params$op == "~", 
+                           c("lhs", "rhs", "est", "se", "pvalue", "std.all")]
+print(structural_paths, row.names = FALSE, digits = 3)</code></pre>
+<pre><code>##           lhs            rhs    est    se pvalue std.all
+##      exercise   intervention  0.400 0.031  0.000   0.492
+##      exercise            age -0.009 0.001  0.000  -0.219
+##      exercise            bmi -0.009 0.003  0.001  -0.113
+##    depression       exercise -0.049 0.010  0.000  -0.244
+##    depression   intervention -0.003 0.007  0.670  -0.018
+##    depression            bmi  0.007 0.001  0.000   0.427
+##    depression baseline_hba1c  0.004 0.003  0.174   0.048
+##     adherence     depression -0.302 0.039  0.000  -0.442
+##     adherence       exercise  0.030 0.008  0.000   0.222
+##     adherence   intervention -0.003 0.005  0.603  -0.026
+##  hba1c_change       exercise -0.482 0.081  0.000  -0.290
+##  hba1c_change     depression -1.309 0.401  0.001  -0.157
+##  hba1c_change      adherence -1.829 0.679  0.007  -0.150
+##  hba1c_change   intervention -0.077 0.054  0.157  -0.057
+##  hba1c_change baseline_hba1c  0.072 0.021  0.001   0.114</code></pre>
+<p>控制台输出解读：<code>parameterEstimates()</code> 把拟合结果整理成整洁的数据框，这里只保留结构路径（<code>op == "~"</code>）。读表诀窍：<code>std.all</code> 列是完全标准化解，可用来横向比较各路径的相对重要性；未标准化的 <code>est</code> 才是可用于效应分解的原始系数。可以看到 BMI 对抑郁的标准化系数（0.427）比干预对运动的（0.492）之外的任何中介链都大——提示模型中「非干预驱动」的关联相当可观。</p>
+<pre class="sourceCode r"><code class="sourceCode r"># 展示测量模型
+cat("\n=== MEASUREMENT MODEL LOADINGS ===\n")</code></pre>
+<pre><code>## 
+## === MEASUREMENT MODEL LOADINGS ===</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">loadings &lt;- params[params$op == "=~", 
+                   c("lhs", "rhs", "est", "se", "pvalue", "std.all")]
+print(loadings, row.names = FALSE, digits = 3)</code></pre>
+<pre><code>##         lhs            rhs  est    se pvalue std.all
+##  depression       dep_mood 1.00 0.000     NA   0.713
+##  depression     dep_energy 1.80 0.104      0   0.714
+##  depression      dep_sleep 2.07 0.128      0   0.660
+##  depression       dep_worth 1.49 0.084      0   0.746
+##    exercise   ex_frequency 1.00 0.000     NA   0.741
+##    exercise    ex_duration 1.20 0.060      0   0.824
+##    exercise    ex_intensity 1.03 0.054      0   0.741
+##   adherence adh_medication 1.00 0.000     NA   0.603
+##   adherence adh_monitoring 1.14 0.114      0   0.544
+##   adherence       adh_diet 0.84 0.080      0   0.645</code></pre>
+<p>控制台输出解读：三个因子的标准化载荷全部大于 0.5，其中 <code>ex_duration</code>（0.824）最强，<code>adh_monitoring</code>（0.544）最弱。第一个条目（dep_mood、ex_frequency、adh_medication）的 est 恒为 1.00、se 为 0、pvalue 为 NA——这是定标载荷（marker loading）被固定为 1 的结果，不是数据特征。</p>
+<pre class="sourceCode r"><code class="sourceCode r"># 展示间接效应
+cat("\n=== MEDIATION ANALYSIS: INDIRECT EFFECTS ===\n")</code></pre>
+<pre><code>## 
+## === MEDIATION ANALYSIS: INDIRECT EFFECTS ===</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">indirect_params &lt;- params[params$op == ":=", 
+                          c("lhs", "est", "se", "pvalue", "std.all")]
+print(indirect_params, row.names = FALSE, digits = 3)</code></pre>
+<pre><code>##                  lhs    est    se pvalue std.all
+##      indirect_ex_dep  0.064 0.024  0.007   0.038
+##      indirect_ex_adh -0.055 0.024  0.021  -0.033
+##  indirect_ex_dep_adh -0.027 0.012  0.021  -0.016
+##     indirect_dep_adh  0.553 0.217  0.011   0.066
+##       total_indirect -0.036 0.039  0.350  -0.022
+##         total_effect -0.113 0.068  0.098  -0.079</code></pre>
+<p>控制台输出解读：单条中介链里，「运动 → 抑郁 → HbA1c」的间接效应为 0.064（p = 0.007，方向为正——因为运动降低抑郁、抑郁降低 HbA1c 变化值，两个负号相乘得正）；「运动 → 依从性 → HbA1c」为 -0.055；「抑郁 → 依从性 → HbA1c」为 0.553。总间接效应 -0.036（p = 0.350）不显著，总效应 -0.113（p = 0.098）也只是边缘显著——模拟数据的噪声（结局残差 SD 0.6）吞掉了大部分信号，这是样本量 800 时该量级效应的真实检验效能表现。</p>
+<pre class="sourceCode r"><code class="sourceCode r"># 提取拟合指标
+fit_measures &lt;- fitMeasures(sem_fit, 
+                            c("chisq", "df", "pvalue", "cfi", 
+                              "tli", "rmsea", "rmsea.ci.lower", 
+                              "rmsea.ci.upper", "srmr"))
+
+cat("\n=== MODEL FIT STATISTICS ===\n")</code></pre>
+<pre><code>## 
+## === MODEL FIT STATISTICS ===</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("Chi-square:", round(fit_measures["chisq"], 2), 
+    "(df =", fit_measures["df"], ", p =", round(fit_measures["pvalue"], 3), ")\n")</code></pre>
+<pre><code>## Chi-square: 118.44 (df = 74 , p = 0.001 )</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("CFI:", round(fit_measures["cfi"], 3), 
+    "(good fit &gt; 0.95)\n")</code></pre>
+<pre><code>## CFI: 0.984 (good fit &gt; 0.95)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("TLI:", round(fit_measures["tli"], 3), 
+    "(good fit &gt; 0.95)\n")</code></pre>
+<pre><code>## TLI: 0.978 (good fit &gt; 0.95)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("RMSEA:", round(fit_measures["rmsea"], 3), 
+    "95% CI: [", round(fit_measures["rmsea.ci.lower"], 3), ",",
+    round(fit_measures["rmsea.ci.upper"], 3), "]",
+    "(good fit &lt; 0.06)\n")</code></pre>
+<pre><code>## RMSEA: 0.027 95% CI: [ 0.018 , 0.036 ] (good fit &lt; 0.06)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("SRMR:", round(fit_measures["srmr"], 3), 
+    "(good fit &lt; 0.08)\n")</code></pre>
+<pre><code>## SRMR: 0.025 (good fit &lt; 0.08)</code></pre>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>拟合指数是 SEM 论文的「标配展台」，但误读极多。要点有四：（1）卡方检验的是<strong>精确拟合</strong>——模型隐含的协方差与样本协方差是否完全一致；样本量越大，越容易把微不足道的偏差判成「显著」，所以卡方显著<strong>不等于</strong>模型没用，Hu 和 Bentler 1999 之后学界通行「卡方 + 近似指数」联合判读。（2）CFI/TLI 是「与最差模型比较的相对改进」，&gt; 0.95 算好，0.9–0.95 算可接受；TLI 对模型简约性有惩罚。（3）RMSEA 是「每自由度平均失配」，&lt; 0.05 紧密、&lt; 0.08 可接受，且一定要报告其置信区间——若区间上界越过 0.1，模型就不可信。（4）SRMR 是标准化残差相关的均值，&lt; 0.08 为佳。反过来要强调：<strong>拟合好只证明「模型没有明显被数据拒绝」，不证明因果关系正确</strong>——一个因果方向完全画错的模型照样可以拟合得很好。医学期刊审稿人越来越要求同时报告以上四类指数，缺项的 SEM 论文常被直接退稿。</p>
+</div>
+<p>模型拟合评估考察的是：我们的理论结构是否充分复现了数据中观测到的协方差模式。卡方检验提供精确拟合的总量检验，但在大样本中，即使拟合良好的模型也常被拒绝——因为微不足道的偏差也能达到统计显著。更务实的拟合指数包括比较拟合指数（CFI）与 Tucker-Lewis 指数（TLI），它们把我们的模型与「假定变量间毫无关系」的基线模型相比较，取值超过 0.95 表示拟合良好。近似误差均方根（RMSEA）按自由度量化观测协方差与模型隐含协方差之间的平均差异，取值低于 0.06 提示紧密拟合。标准化均方根残差（SRMR）度量平均绝对相关残差，低于 0.08 被认为可接受。</p>
+<pre class="sourceCode r"><code class="sourceCode r"># 可视化路径图
+cat("\n=== GENERATING PATH DIAGRAM ===\n")</code></pre>
+<pre><code>## 
+## === GENERATING PATH DIAGRAM ===</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">semPaths(sem_fit, 
+         what = "std",
+         layout = "tree",
+         rotation = 2,
+         style = "lisrel",
+         curve = 1.5,
+         nCharNodes = 0,
+         edge.label.cex = 0.9,
+         sizeMan = 6,
+         sizeLat = 10,
+         mar = c(3, 3, 3, 3),
+         title = TRUE,
+         residuals = FALSE,
+         exoCov = FALSE)</code></pre>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-40-1.png" width="672" alt="SEM 标准化路径图" /></p>
+<p>控制台与图形输出解读：路径图用 LISREL 风格呈现：方框为观测指标，圆/椭圆为潜在构念，箭头粗细与标准化系数成比例。一眼可确认模型按预期估计：干预在左、运动居中、抑郁与依从性居右、HbA1c 变化在最右，因果流向与 DAG 一致。</p>
+<pre class="sourceCode r"><code class="sourceCode r"># 创建详细的中介汇总表
+mediation_summary &lt;- data.frame(
+  Pathway = c("Exercise → Depression → HbA1c",
+              "Exercise → Adherence → HbA1c",
+              "Exercise → Depression → Adherence → HbA1c",
+              "Intervention → Exercise → HbA1c (Direct)",
+              "Intervention → All Mediators → HbA1c (Total Indirect)",
+              "Intervention → HbA1c (Total Effect)"),
+  Estimate = c(
+    coef(sem_fit)["indirect_ex_dep"],
+    coef(sem_fit)["indirect_ex_adh"],
+    coef(sem_fit)["indirect_ex_dep_adh"],
+    coef(sem_fit)["b1"] * coef(sem_fit)["b7"],
+    coef(sem_fit)["total_indirect"],
+    coef(sem_fit)["total_effect"]
+  ),
+  SE = c(
+    params[params$lhs == "indirect_ex_dep", "se"],
+    params[params$lhs == "indirect_ex_adh", "se"],
+    params[params$lhs == "indirect_ex_dep_adh", "se"],
+    sqrt((coef(sem_fit)["b1"]^2 * vcov(sem_fit)["b7", "b7"]) + 
+         (coef(sem_fit)["b7"]^2 * vcov(sem_fit)["b1", "b1"])),
+    params[params$lhs == "total_indirect", "se"],
+    params[params$lhs == "total_effect", "se"]
+  )
+)
+
+mediation_summary$CI_Lower &lt;- mediation_summary$Estimate - 1.96 * mediation_summary$SE
+mediation_summary$CI_Upper &lt;- mediation_summary$Estimate + 1.96 * mediation_summary$SE
+mediation_summary$P_Value &lt;- 2 * pnorm(-abs(mediation_summary$Estimate / mediation_summary$SE))
+
+cat("\n=== COMPREHENSIVE MEDIATION ANALYSIS ===\n")</code></pre>
+<pre><code>## 
+## === COMPREHENSIVE MEDIATION ANALYSIS ===</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">print(mediation_summary, digits = 3, row.names = FALSE)</code></pre>
+<pre><code>##                                                Pathway Estimate     SE CI_Lower CI_Upper  P_Value
+##                          Exercise → Depression → HbA1c       NA 0.0236       NA       NA       NA
+##                           Exercise → Adherence → HbA1c       NA 0.0240       NA       NA       NA
+##              Exercise → Depression → Adherence → HbA1c       NA 0.0117       NA       NA       NA
+##               Intervention → Exercise → HbA1c (Direct)   -0.193 0.0357   -0.263   -0.123 6.48e-08
+##  Intervention → All Mediators → HbA1c (Total Indirect)       NA 0.0389       NA       NA       NA
+##                    Intervention → HbA1c (Total Effect)       NA 0.0683       NA       NA       NA</code></pre>
+<p>控制台输出解读：<strong>这里必须给读者一个提醒</strong>——Estimate 列大量出现 NA，而 SE 列却有数。原因是 R 的 <code>coef(sem_fit)</code> 只返回模型自由估计的「原始参数」（b1–b10、载荷、方差），不包含 <code>:=</code> 定义的派生参数；用 <code>coef()["indirect_ex_dep"]</code> 取不到值就返回 NA，随后的 CI 与 P 值也只能是 NA。正确做法是从 <code>parameterEstimates(sem_fit)</code> 里筛 <code>op == ":="</code> 的行（前面已演示），或对 lavaan 拟合对象用 <code>semTools::bootstrapLavaan()</code> / <code>lavInspect()</code>。唯一完整的一行「Intervention → Exercise → HbA1c (Direct)」= -0.193 是 b1×b7 的乘积，说明「干预 → 运动 → HbA1c」这条链贡献 -0.193，比干预的直接效应（-0.077）更大。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>「中介比例」（proportion mediated）是医学论文里最常被误用的统计量之一。它等于总间接效应除以总效应，直觉是「干预的获益有多大比例走中介通路」。问题在于：（1）当直接效应与间接效应<strong>符号相反</strong>或总效应接近 0 时，该比例可以大于 1 或为负，毫无解释价值；（2）它隐含「效应可加性」，非线性/交互存在时分解不唯一；（3）现代因果中介框架（VanderWeele、Robins 等）更推荐报告<strong>自然直接效应与自然间接效应</strong>及其比例，而非线性 SEM 的路径乘积。Baron-Kenny（1986）的经典四步法在教材中仍常见，但它对中介效应的检验效能低、且第一步「X 显著预测 M」并非必要条件——综述与方法学论文（如 Imai et al. 2010）已多次纠偏。报告时，请同时给出未标准化的间接效应、其置信区间（bootstrap 优先），以及中介比例（若计算）及其不适用的情形说明。</p>
+</div>
+<p>中介分析把干预效应分解为若干组成通路，量化每条机制贡献了多少获益。我们区分经由单一中介的简单间接效应与经由多个序贯中介的复合效应。例如，「干预 → 运动 → 抑郁 → 依从性 → 血糖控制」是一条三步中介链，每一环的强度决定整条通路的量级。中介比例指示总干预效应中有多大比例经由已测中介通路传递，而非通过直接生物效应或未测量机制实现。</p>
+<pre class="sourceCode r"><code class="sourceCode r"># 中介比例计算
+direct_effect &lt;- coef(sem_fit)["b10"]
+total_indirect &lt;- coef(sem_fit)["total_indirect"]
+total_effect &lt;- coef(sem_fit)["total_effect"]
+prop_mediated &lt;- total_indirect / total_effect
+
+cat("\n=== PROPORTION OF EFFECT MEDIATED ===\n")</code></pre>
+<pre><code>## 
+## === PROPORTION OF EFFECT MEDIATED ===</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("Direct effect:", round(direct_effect, 3), "\n")</code></pre>
+<pre><code>## Direct effect: -0.077</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("Total indirect effect:", round(total_indirect, 3), "\n")</code></pre>
+<pre><code>## Total indirect effect: NA</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("Total effect:", round(total_effect, 3), "\n")</code></pre>
+<pre><code>## Total effect: NA</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("Proportion mediated:", round(prop_mediated * 100, 1), "%\n")</code></pre>
+<pre><code>## Proportion mediated: NA %</code></pre>
+<p>控制台输出解读：与上一段同样的 NA 问题——<code>total_indirect</code> 与 <code>effect</code> 是用 <code>:=</code> 定义的参数，<code>coef()</code> 取不到，只能得到 NA；只有直接效应 b10 = -0.077 成功取出。若改用 <code>parameterEstimates()</code> 筛 <code>op == ":="</code> 的行，可得 total_indirect = -0.036、total_effect = -0.113，中介比例约 31.9%。</p>
+<pre class="sourceCode r"><code class="sourceCode r"># 敏感性分析：备选模型设定
+# 模型 1：干预对结局无直接效应
+restricted_model &lt;- '
+  depression =~ dep_mood + dep_energy + dep_sleep + dep_worth
+  exercise =~ ex_frequency + ex_duration + ex_intensity
+  adherence =~ adh_medication + adh_monitoring + adh_diet
+  
+  exercise ~ intervention + age + bmi
+  depression ~ exercise + intervention + bmi + baseline_hba1c
+  adherence ~ depression + exercise + intervention
+  hba1c_change ~ exercise + depression + adherence + baseline_hba1c
+'
+
+restricted_fit &lt;- sem(restricted_model, data = sem_data, fixed.x = FALSE)</code></pre>
+<pre><code>## Warning: lavaan-&gt;lav_data_full():  
+##    some observed variances are (at least) a factor 1000 times larger than others; use varTable(fit) to investigate</code></pre>
+<p>控制台输出解读：同样的方差量级警告，可忽略。</p>
+<pre class="sourceCode r"><code class="sourceCode r"># 用似然比检验比较模型
+cat("\n=== MODEL COMPARISON: DIRECT EFFECT NECESSITY ===\n")</code></pre>
+<pre><code>## 
+## === MODEL COMPARISON: DIRECT EFFECT NECESSITY ===</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">comparison &lt;- anova(restricted_fit, sem_fit)
+print(comparison)</code></pre>
+<pre><code>## 
+## Chi-Squared Difference Test
+## 
+##                Df   AIC   BIC  Chisq Chisq diff    RMSEA Df diff Pr(&gt;Chisq)
+## sem_fit        74 10752 10967 118.44                                       
+## restricted_fit 75 10752 10963 120.43     1.9904 0.035186       1     0.1583</code></pre>
+<p>控制台输出解读：嵌套模型比较。受限模型（去掉干预 → HbA1c 直接路径）自由度 +1，卡方仅增加 1.99（p = 0.158），AIC 几乎不变——即「加入直接效应」并未显著改善拟合。</p>
+<pre class="sourceCode r"><code class="sourceCode r">if (comparison$`Pr(&gt;Chisq)`[2] &lt; 0.05) {
+  cat("\nInterpretation: Direct intervention effect is statistically necessary\n")
+  cat("Some intervention benefits bypass measured mediators\n")
+} else {
+  cat("\nInterpretation: Measured mediators fully account for intervention effects\n")
+  cat("All benefits operate through exercise, depression, and adherence pathways\n")
+}</code></pre>
+<pre><code>## 
+## Interpretation: Measured mediators fully account for intervention effects
+## All benefits operate through exercise, depression, and adherence pathways</code></pre>
+<p>控制台输出解读：if/else 分支按 p = 0.158 ≥ 0.05 走进 else，输出「已测中介可完整解释干预效应」的结论。但请注意：这只是「没有证据表明需要直接路径」（不拒绝零假设），而非「证明」直接效应为零——「未拒绝」与「证实为真」是两回事。</p>
+<pre class="sourceCode r"><code class="sourceCode r"># 间接效应的 bootstrap 置信区间
+cat("\n=== BOOTSTRAP CONFIDENCE INTERVALS ===\n")</code></pre>
+<pre><code>## 
+## === BOOTSTRAP CONFIDENCE INTERVALS ===</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">cat("Computing 1000 bootstrap samples (this may take a moment)...\n")</code></pre>
+<pre><code>## Computing 1000 bootstrap samples (this may take a moment)...</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">boot_fit &lt;- sem(sem_model, data = sem_data, 
+                fixed.x = FALSE,
+                se = "bootstrap",
+                bootstrap = 1000)</code></pre>
+<pre><code>## Warning: lavaan-&gt;lav_data_full():  
+##    some observed variances are (at least) a factor 1000 times larger than others; use varTable(fit) to investigate</code></pre>
+<pre><code>## Warning: lavaan-&gt;lav_model_nvcov_bootstrap():  
+##    3 bootstrap runs failed or did not converge.</code></pre>
+<p>控制台输出解读：1000 次 bootstrap 重抽样中有 3 次未收敛，被自动剔除，剩余 997 次用于计算百分位 CI。重抽样失败率 0.3% 属可接受范围；若失败率很高（&gt; 5%），提示模型在某些重抽样样本上不稳定，应增加样本量或简化模型。</p>
+<pre class="sourceCode r"><code class="sourceCode r">boot_params &lt;- parameterEstimates(boot_fit, 
+                                  boot.ci.type = "perc",
+                                  level = 0.95)
+
+boot_indirect &lt;- boot_params[boot_params$op == ":=" &amp; 
+                             grepl("indirect", boot_params$lhs), 
+                             c("lhs", "est", "ci.lower", "ci.upper")]
+
+cat("\nBootstrap Percentile Confidence Intervals:\n")</code></pre>
+<pre><code>## 
+## Bootstrap Percentile Confidence Intervals:</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">print(boot_indirect, digits = 3, row.names = FALSE)</code></pre>
+<pre><code>##                  lhs    est ci.lower ci.upper
+##      indirect_ex_dep  0.064    0.027    0.135
+##      indirect_ex_adh -0.055   -0.143   -0.019
+##  indirect_ex_dep_adh -0.027   -0.093   -0.006
+##     indirect_dep_adh  0.553    0.150    1.969
+##       total_indirect -0.036   -0.167    0.027</code></pre>
+<p>控制台输出解读：bootstrap 百分位 CI 是间接效应推断的「金标准」。四条中介链的 CI 均不跨 0（如 indirect_ex_dep 的 [0.027, 0.135]），与基于 delta 方法的 z 检验结论一致；总间接效应的 CI 为 [-0.167, 0.027]，跨 0，再次说明「总体中介」证据不足。注意 indirect_dep_adh 的 CI 很宽（0.150–1.969），提示该链估计精度有限。</p>
+<p>敏感性分析评估结论对模型设定选择的稳健性。我们把「允许干预对结局有直接效应」的完整模型，与「所有干预效应必须经由已测中介传递」的受限模型相比较。似然比检验评估直接路径是否显著改善拟合，从而判断在所设想通路之外，是否还有未测量机制对干预效力有贡献。Bootstrap 置信区间提供了免分布的不确定性量化，即使标准误背后的渐近正态假设失效也依然有效——这对抽样分布可能偏斜的间接效应尤其重要。</p>
+<p>测量模型的效度决定我们的潜在构念能否有意义地代表其拟捕捉的心理与行为现象。因子载荷指示每个指标反映其底层构念的强度，标准化载荷大于 0.5 视为可接受，大于 0.7 表示强关系。弱载荷提示指标对其拟测构念的测量不佳，可能反映测量误差、构念歧义，或条目捕捉了多个潜在因子的多维性。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>模型的「自由度」与「简约性」值得一说：本例完整模型 74 个自由度，源于 15 个观测变量共有 120 个协方差元素，模型只估 46 个参数。受限模型多 1 个自由度却几乎不改善卡方，说明直接效应参数「性价比」太低——这是模型比较的典型逻辑（用 AIC/BIC 权衡拟合与复杂度）。但临床研究者要警惕一种陷阱：<strong>用拟合指数做「模型搜素」</strong>——不断删路径直到拟合最好，然后宣称「数据支持该理论」。这种做法等于把模型选择权交给噪声，正确姿势是让理论先验决定结构，用拟合与敏感性分析做事后检验。此外，lavaan 的 <code>anova()</code> 对嵌套模型自动做卡方差异检验，但两个模型若测量部分不同则不适用。</p>
+</div>
+<pre class="sourceCode r"><code class="sourceCode r"># 评估测量模型质量
+reliability_analysis &lt;- function(fit, factor_name) {
+  # 提取该因子的载荷
+  params &lt;- parameterEstimates(fit, standardized = TRUE)
+  loadings &lt;- params[params$op == "=~" &amp; params$lhs == factor_name, "std.all"]
+  
+  # 计算组合信度（Omega）
+  sum_loadings &lt;- sum(loadings)
+  sum_squared_loadings &lt;- sum(loadings^2)
+  
+  # 提取误差方差
+  indicator_names &lt;- params[params$op == "=~" &amp; 
+                            params$lhs == factor_name, "rhs"]
+  error_vars &lt;- sapply(indicator_names, function(ind) {
+    1 - params[params$lhs == ind &amp; params$op == "~~" &amp; 
+               params$rhs == ind, "std.all"]^2
+  })
+  sum_error_vars &lt;- sum(error_vars)
+  
+  omega &lt;- sum_squared_loadings / (sum_squared_loadings + sum_error_vars)
+  
+  # 平均方差提取量
+  ave &lt;- sum_squared_loadings / length(loadings)
+  
+  return(list(
+    omega = omega,
+    ave = ave,
+    loadings = loadings,
+    n_items = length(loadings)
+  ))
+}
+
+cat("\n=== MEASUREMENT MODEL RELIABILITY ===\n")</code></pre>
+<pre><code>## 
+## === MEASUREMENT MODEL RELIABILITY ===</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">factors &lt;- c("depression", "exercise", "adherence")
+
+for (factor in factors) {
+  rel &lt;- reliability_analysis(sem_fit, factor)
+  cat("\n", toupper(factor), ":\n", sep = "")
+  cat("  Number of indicators:", rel$n_items, "\n")
+  cat("  Composite reliability (Omega):", round(rel$omega, 3), 
+      ifelse(rel$omega &gt; 0.7, "(Good)", "(Adequate)"), "\n")
+  cat("  Average Variance Extracted:", round(rel$ave, 3),
+      ifelse(rel$ave &gt; 0.5, "(Good)", "(Below threshold)"), "\n")
+  cat("  Factor loadings:", paste(round(rel$loadings, 3), collapse = ", "), "\n")
+}</code></pre>
+<pre><code>## 
+## DEPRESSION:
+##   Number of indicators: 4 
+##   Composite reliability (Omega): 0.401 (Adequate) 
+##   Average Variance Extracted: 0.502 (Good) 
+##   Factor loadings: 0.713, 0.714, 0.66, 0.746 
+## 
+## EXERCISE:
+##   Number of indicators: 3 
+##   Composite reliability (Omega): 0.416 (Adequate) 
+##   Average Variance Extracted: 0.592 (Good) 
+##   Factor loadings: 0.741, 0.824, 0.741 
+## 
+## ADHERENCE:
+##   Number of indicators: 3 
+##   Composite reliability (Omega): 0.38 (Adequate) 
+##   Average Variance Extracted: 0.359 (Below threshold) 
+##   Factor loadings: 0.603, 0.544, 0.645</code></pre>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>这段输出里有个值得玩味的现象：三个因子的标准化载荷都不低（0.54–0.82），按 Fornell-Larcker 判据 AVE 也多数达标，但 Omega 全部低于 0.7。细看这段自定义 <code>reliability_analysis()</code>，能发现两处口径问题：其一，Omega 的分子应为<strong>载荷和的平方</strong> <span class="math inline">\((\sum\lambda_j)^2\)</span>，代码里的 <code>sum_squared_loadings</code> 用的却是<strong>载荷平方和</strong> <span class="math inline">\(\sum\lambda_j^2\)</span>——后者其实是 AVE 的分子；其二，误差方差一项又把标准化误差方差平方了一次（<span class="math inline">\(1-(1-\lambda_j^2)^2\)</span>），进一步扭曲了分母。按正确公式重算，抑郁因子的 Omega 约为 0.80，其实完全达标。这提醒我们：<strong>论文里报告信度系数前，务必核对公式口径</strong>——Cronbach's α、组合信度（Omega）、AVE 三者分子分母各异，自己写的函数或软件默认选项都可能与教科书公式不一致。AVE 低于 0.5（如本例的依从性 0.359）意味着条目方差中过半来自误差，该构念上的结构路径估计会衰减（attenuation），解释效应大小时要相应保守。</p>
+</div>
+<p>组合信度（系数 omega）通过比较指标集合中「真实分数方差」与「总观测方差」来量化内部一致性。取值超过 0.7 表示各指标一致地测量同一底层构念，信度可接受。平均方差提取量（AVE）表示指标方差中被潜在因子捕捉（相对于测量误差）的比例，超过 0.5 表示大部分方差反映构念而非噪声。</p>
+<p>这些指标验证我们的多条目量表捕捉到的是连贯的潜在构念，而非关系松散的变量的随意堆砌。强测量模型增强「结构关系反映真实因果过程而非测量假象」的信心。当信度不足时，研究者应考虑剔除弱指标、补充测量工具，或重新概念化构念以更好地匹配可观测现象。</p>
+<h2><span class="header-section-number">12.3</span> 临床解读与局限性</h2>
+<p>结构方程模型揭示，运动干预通过多个相互关联的机制（而非单一主导通路）降低 HbA1c。总干预效应中约 60% 经由已测中介传递——体力活动增加、抑郁症状减轻、治疗依从性改善——其余 40% 代表直接生物效应或未测量机制，如胰岛素敏感性改善与炎症调节。</p>
+<p>最强的通路是「运动减轻抑郁，进而增强服药依从性，最终改善血糖控制」。这条三步中介链对总效应的贡献远超运动对代谢的直接效应，凸显了心理机制在糖尿病管理干预中的关键角色。未能经历抑郁减轻的患者，即使体力活动成功增加，干预获益也会打折——这提示：筛查难治性抑郁并提供辅助心理健康支持，或许能提升项目效果。</p>
+<p>这些机制性洞察通过识别「微小改进即可产生级联收益」的杠杆点来改造干预设计。投入抑郁管理的资源可能比等量投入运动促进产生更大的整体效应，因为抑郁减轻会触发多种健康行为的连锁改善。模型还提示治疗反应的异质性：基线抑郁更严重的患者有更大的心理改善空间，因此若运动干预成功减轻其抑郁症状，整体获益可能更大。</p>
+<p>在临床落地中应用这些结论，需要仔细考量因果解释背后的假设。虽然干预随机化保证了其对中介的效应无混杂，但中介–结局关系仍是观察性的、可能受混杂。未测量因素——如健康素养、社会支持或遗传倾向——可能同时影响抑郁与依从性，令中介效应估计产生偏倚。量化「多强的未测混杂才能推翻结论」的敏感性分析能提供一定安慰，但无法根除这些疑虑。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>为什么「干预随机化」救不了中介分析？画个 DAG 就清楚了：随机化只切断了指向干预 <span class="math inline">\(D\)</span> 的混杂箭头；但中介 <span class="math inline">\(M\)</span> 与结局 <span class="math inline">\(Y\)</span> 之间若存在共同原因 <span class="math inline">\(U\)</span>（如健康素养 <span class="math inline">\(U\)</span> → 依从性 <span class="math inline">\(M\)</span>，<span class="math inline">\(U\)</span> → HbA1c <span class="math inline">\(Y\)</span>），SEM 估计的 b4、b9 就混入了 <span class="math inline">\(U\)</span> 的效应。这就是为什么近年方法学界（如 VanderWeele 2015；Bulbulia et al.）反复强调：中介分析必须假设「中介–结局无未测混杂」，这与观察性研究的可忽略性是同一族假设，一点也不弱。可行的加固手段包括：（1）测到并调整尽可能多的中介–结局共同原因（本例中的 BMI、基线 HbA1c 就是范例）；（2）敏感性分析/E 值评估未测混杂的威胁程度；（3）设计上采用「干预–中介」随机化（若伦理可行，如随机分配运动课程以随机化中介）；（4）对中介–结局关系使用工具变量或前门准则。请记住：没有这些加固，「中介效应显著」只能读作「与理论一致的条件关联」，不能读作「机制被证实」。</p>
+</div>
+<p>结构方程模型继承了其强参数化与强结构假设的根本局限，实践者必须对此有清醒认识。线性假设把关系限制为沿直线的加性效应，可能错过阈值效应（干预仅在超过某剂量水平后才起效）或倒 U 型关系（适度运动的收益超过久坐与极端训练两者）。广义 SEM 扩展可容纳非线性关系与非正态结局，但需要更大样本与更复杂的设定。</p>
+<p>「结构关系无未测混杂」的假设，也许是观察性中介分析中因果有效性面临的最严重威胁。虽然随机分配干预保证了处理效应无混杂，中介–结局关系仍易受「制造虚假关联」的隐藏因素影响。嵌入 SEM 框架内的工具变量方法有时能在排他性约束成立时放松这些假设，但在实践中找到有效工具变量依然困难。</p>
+<p>测量模型假设要求指标只反映单一潜在构念，不在多个因子上交叉载荷（cross-loading）。真实心理测量工具常常违反这一假设——个体条目捕捉的是复杂现象的多重侧面。探索性结构方程模型（ESEM）允许交叉载荷，同时保留同时估计的优势，以额外参数和复杂度为代价，给出更现实的测量结构。</p>
+<p>该方法还假定模型设定正确，包括所有相关通路、不遗漏重要变量。误设会使参数估计与标准误产生偏倚，并制造误导性的拟合统计量——让模型看似充分，实则根本上有缺陷。理论根基、审慎的协变量选择、跨多个数据集的验证有助于缓解这些风险，但无法完全消除。</p>
+<p>最新进展把经典 SEM 扩展到日益复杂的场景：建模时间变化的纵向设计、考虑医疗机构或地理区域聚类的多水平模型、以及识别具有不同因果结构的潜在亚组的混合模型。这些扩展使机制如何跨人群与情境变化的研究更为细致，支持建立在个体水平因果过程的机制性理解之上的真正个性化医疗。</p>
+<h2><span class="header-section-number">12.4</span> 结论</h2>
+<p>结构方程模型为解开「医疗干预影响患者结局的复杂因果通路」提供了强大工具。通过同时建模测量误差与结构关系、并量化直接与间接效应，SEM 超越了简单的效力估计，走向为干预优化与个性化提供信息的机制性理解。我们的糖尿病预防分析展示了该方法如何揭示：抑郁减轻等心理机制对干预获益的贡献，往往大于临床研究通常强调的直接生物效应。</p>
+<p>该框架把测量模型与结构模型整合在一起，应对了健康研究中的根本挑战——像生活质量、患者参与度或治疗负担这类关心构念无法被直接观测，只能从多个不完美指标推断。通过显式建模这一测量过程，SEM 给出偏倚更小的因果效应估计，同时恰当地量化不确定性。由此得到的机制性洞察使研究者能够识别：哪些干预组分值得重点投入，哪些患者亚组最可能从针对性的项目修改中获益。</p>
+<p>成功的应用需要对理论设定、识别条件以及因果解释背后的强假设给予审慎关注。当该方法由关于因果机制的实质理论引导、由具有既定效度的高质量测量工具支撑、并通过评估对假设违反稳健性的敏感性分析验证时，效果最佳。在这些条件成立时，SEM 把临床研究从黑箱式的效力评估，转变为加速开发更有效、更高效、更公平的医疗干预的机制性理解——这些干预可量身定制于不同患者群体的复杂需求。</p>
