@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme-default="light">
+<head>
+<script>
+(function(){
+  var KEY="share-theme", d=document.documentElement;
+  try{var saved=localStorage.getItem(KEY);}catch(e){var saved=null;}
+  d.setAttribute("data-theme", saved || d.getAttribute("data-theme-default") || "light");
+  document.addEventListener("DOMContentLoaded",function(){
+    var b=document.getElementById("theme-toggle"); if(!b) return;
+    function sync(){
+      var dark=d.getAttribute("data-theme")==="dark";
+      b.setAttribute("aria-pressed", dark?"true":"false");
+      b.setAttribute("title", dark?"切换到亮色主题 (Alt+T)":"切换到暗色主题 (Alt+T)");
+    }
+    b.addEventListener("click",function(){
+      var nxt=d.getAttribute("data-theme")==="dark"?"light":"dark";
+      d.setAttribute("data-theme",nxt);
+      try{localStorage.setItem(KEY,nxt);}catch(e){}
+      sync();
+    });
+    document.addEventListener("keydown",function(e){
+      if(e.altKey&&(e.key==="t"||e.key==="T")) b.click();
+    });
+    sync();
+  });
+})();
+</script>
+<script>
+window.MathJax={tex:{inlineMath:[['\\(','\\)'],['$','$']],displayMath:[['\\[','\\]'],['$$','$$']]},
+options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 14 章 双重机器学习</title>
+<style>
+:root{
+  --bg:#f7f7f5; --card:#ffffff; --text:#2c2c2a; --muted:#6b6a65;
+  --line:#e3e2dd; --accent:#534ab7; --accent-soft:#eeedfe; --tag:#f1efe8;
+  --code-bg:#f4f3ef; --code-line:#e7e5df; --code-text:#2c2c2a;
+  --note-bg:#eef6ff; --note-line:#bcd6f5; --note-text:#1f3a5f;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;line-height:1.8;margin:0}
+.wrap{max-width:900px;margin:0 auto;padding:32px 22px 80px}
+.topbar{margin-bottom:26px;display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--accent);text-decoration:none;font-size:14px;font-weight:600}
+.back:hover{text-decoration:underline}
+.chpos{font-size:13px;color:var(--muted);letter-spacing:.04em}
+h1{font-size:30px;font-weight:700;letter-spacing:-.3px;margin:6px 0 4px;line-height:1.3}
+.sub{color:var(--muted);font-size:14px;margin-bottom:8px}
+.sub a{color:var(--accent)}
+.lead{font-size:16px;color:var(--text);margin:14px 0 22px;border-left:3px solid var(--accent);padding:4px 0 4px 16px;background:var(--accent-soft);border-radius:0 8px 8px 0}
+.content h2{font-size:22px;font-weight:700;margin:38px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.content h3{font-size:18px;font-weight:700;margin:26px 0 10px}
+.content h4{font-size:16px;font-weight:700;margin:20px 0 8px}
+.content p{margin:12px 0}
+.content ul,.content ol{margin:12px 0;padding-left:26px}
+.content li{margin:6px 0}
+.content a{color:var(--accent);text-decoration:none}
+.content a:hover{text-decoration:underline}
+.content img{max-width:100%;height:auto;border:1px solid var(--line);border-radius:8px;margin:14px 0;background:#fff;display:block}
+.content blockquote{margin:14px 0;padding:10px 16px;border-left:3px solid var(--line);background:var(--tag);border-radius:0 8px 8px 0;color:var(--muted)}
+.note{margin:18px 0;padding:14px 18px;border:1px solid var(--note-line);background:var(--note-bg);border-radius:10px;color:var(--note-text)}
+.note .nt{display:inline-block;font-weight:700;font-size:13px;letter-spacing:.04em;margin-bottom:6px;color:var(--accent)}
+.note p{margin:6px 0}
+.rulebox{margin:18px 0;padding:14px 18px;border-radius:10px;background:#5ADDD7;color:#0c2c2a}
+.rulebox h3{margin:0 0 6px;color:#0c2c2a}
+.rulebox p{margin:0;font-weight:400;color:#0c2c2a}
+.toc{margin:22px 0;padding:16px 20px;border:1px solid var(--line);background:var(--card);border-radius:10px}
+.toc .ttl{font-weight:700;font-size:14px;color:var(--muted);margin-bottom:8px;letter-spacing:.04em}
+.toc ol{margin:0;padding-left:22px;columns:2;column-gap:28px}
+.toc li{margin:4px 0;font-size:14.5px}
+.toc a{color:var(--text)}
+.foot{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.foot a{color:var(--accent)}
+.csl-entry{margin:8px 0;font-size:13.5px;line-height:1.6;padding-left:14px;text-indent:-14px}
+pre{background:var(--code-bg);border:1px solid var(--code-line);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.6;color:var(--code-text);margin:14px 0}
+pre code{background:none;border:none;padding:0;font-size:inherit;color:inherit}
+code{background:var(--code-bg);border:1px solid var(--code-line);border-radius:4px;padding:1px 5px;font-size:.92em;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--tag);font-weight:700}
+.pager{display:flex;justify-content:space-between;gap:12px;margin-top:40px;flex-wrap:wrap}
+.pager a{flex:1 1 45%;min-width:200px;padding:12px 16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);text-decoration:none;font-size:14px}
+.pager a:hover{border-color:var(--accent);color:var(--accent)}
+.pager .next{text-align:right}
+.pager .disabled{opacity:.35;pointer-events:none}
+:root[data-theme="dark"]{--bg:#0f1116;--card:#181b22;--text:#e4e6ea;--muted:#98a0ac;--line:#2a2f3a;--accent:#7aa2f7;--accent-soft:#16203a;--tag:#1e222b;--code-bg:#0b0d12;--code-line:#1d2129;--code-text:#d7dae0;--note-bg:#15233b;--note-line:#274168;--note-text:#bcd6f5}
+:root[data-theme="dark"] .content img{background:#0b0d12}
+:root[data-theme="dark"] .rulebox{background:#1c5b56;color:#d6f5f1}
+:root[data-theme="dark"] .toc{background:var(--card)}
+.tt{position:fixed;top:16px;right:16px;z-index:9999;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;color:var(--text);background:var(--card);border:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.24)}
+.tt:hover{transform:translateY(-1px);border-color:var(--accent)}
+.tt svg{display:none}
+[data-theme="dark"] .ico-sun{display:block}
+[data-theme="dark"] .ico-moon{display:none}
+[data-theme="light"] .ico-sun{display:none}
+[data-theme="light"] .ico-moon{display:block}
+@media(max-width:640px){.tt{top:10px;right:10px;width:36px;height:36px}}
+@media print{.tt{display:none}}
+</style>
+</head>
+<body>
+<button id="theme-toggle" class="tt" type="button" aria-label="切换明暗主题" title="切换明暗主题 (Alt+T)">
+  <svg class="ico-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12H5M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
+  <svg class="ico-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 14.5A8.2 8.2 0 0 1 9.5 4a8.2 8.2 0 1 0 10.5 10.5z"/></svg>
+</button>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="../index.html">&larr; 返回全书目录</a>
+    <span class="chpos">第 14 章 / 共 14 章</span>
+  </div>
+  <h1>第 14 章 双重机器学习</h1>
+  <p class="sub">原书第 14 章 · <a href="https://kamran-afzali.github.io/Bookdown_Causality/double-machine-learning.html">double-machine-learning.html</a> · Kamran Afzali《Causal Inference in R》中文译本 · 非官方翻译</p>
+  <div class="content">
+<h2>14.1 引言</h2>
+<p>设想你正在分析电子健康档案（EHR），想确定某种降压药能否减少心血管事件。数据集包含数千名患者、数百个潜在混杂因子——人口学特征、合并症、实验室检查值、既往用药和生活方式因素。传统回归方法把你逼到一个两难选择：要么把所有潜在混杂因子都放进模型，承担过拟合与估计不可靠的风险；要么只凭临床判断挑选一小部分变量，承担遗漏重要混杂因子、使结果产生偏误的风险。</p>
+<p>这一困境弥漫在现代医疗卫生研究的方方面面：丰富的观察性数据让因果问题的研究规模达到前所未有的程度，但高维性威胁着传统统计方法的效度。纳入太多变量会导致模型不稳定、样本外表现差；纳入太少则招致混杂偏误，使因果结论失效。贯穿整个统计学习的偏误—方差权衡，在因果推断中变得格外尖锐——因为在这里，答错问题可能误导临床实践、伤害患者。</p>
+<p>双重机器学习（double machine learning，DML）通过一个有原则的框架化解了这一张力：它驾驭机器学习的预测能力，同时保住有效因果推断所需的统计严谨性。该方法让研究者能够灵活地对处理、结局与高维混杂因子之间的复杂关系建模，又不牺牲做假设检验和构造置信区间的能力。通过谨慎分离"预测"与"推断"两种角色，DML 实现了对模型误设的稳健性——即使单个预测模型并不完美，因果结论依然可靠。</p>
+<p>DML 的核心洞察看似简单却意味深长：我们可以用灵活的机器学习方法去除混杂，但必须做得小心翼翼，以保住有效推断所需的统计性质。那种"把机器学习预测值直接塞进因果估计量"的传统做法会失败，因为正则化与模型选择引入的偏误会以各种方式污染处理效应估计，使标准误和置信区间失效。DML 通过三项协同工作的关键创新来解决这个问题，在高维环境下交付稳健的因果推断。</p>
+<p>第一，该方法采用<strong>正交得分函数</strong>（orthogonal score functions），使处理效应估计对扰动参数估计中的小错误不敏感。这一 Neyman 正交性保证：即使结局模型和处理倾向得分模型略有偏差，处理效应估计中的偏误仍可忽略。第二，DML 使用<strong>交叉拟合</strong>（cross-fitting）消除否则会污染推断的过拟合偏误。方法在与处理效应估计不同的数据上训练预测模型，从而杜绝机器学习算法通过自适应模型选择天然带来的乐观偏误。第三，该框架通过渐近正态性保证提供<strong>诚实的不确定性量化</strong>，使得尽管使用自适应、数据驱动的程序，仍能进行有效的假设检验和构造置信区间。</p>
+<p>这些技术上的创新，为与高维观察性数据现实缠斗的医疗卫生研究者带来了实际优势。DML 能应对会让传统参数方法不堪重负的高维混杂因子；当混杂因子与处理、结局之间的函数形式复杂且未知时依然稳健；交付的处理效应估计附带有效的标准误和置信区间，支撑严谨的推断。在研究者掌握丰富协变量信息、但对数据生成过程的精确函数关系了解有限的场景中，该方法表现尤为出色。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p><strong>Neyman 正交与交叉拟合为何能容忍机器学习的偏差。</strong>流行病学读者熟悉"双稳健"估计量（如 augmented IPW、TMLE）：结局回归与处理（倾向得分）回归中只要有一个是对的，估计量就一致。DML 的正交得分 <span class="math inline">\((W - m(X))(Y - g(X) - \theta W)\)</span> 正是这一思想在计量经济学中的对应物：它对扰动函数 <span class="math inline">\((g, m)\)</span> 的导数在真值处为零，意味着扰动函数估计误差只以二阶小量进入处理效应估计——一阶偏误被自动消掉。但光有正交还不够：机器学习在全样本上拟合再回代同一份数据会"记住"个体，残差中残留过拟合成分，标准误随之偏小。交叉拟合把数据切成 K 折，每一折的预测都出自没见过它的模型，从结构上消灭过拟合通道。两者合起来，才使得"用随机森林当回归器"也能配有效的置信区间。可以概括为：<strong>正交性负责容忍偏差，交叉拟合负责诚实的不确定性</strong>。</p>
+</div>
+<h3>14.1.1 理论框架：理解双重机器学习方法</h3>
+<p>DML 的数学基础建立在我们在因果森林一章讨论过的潜在结局框架之上，但把它扩展去应对高维混杂因子带来的估计难题。考虑一位患者 <span class="math inline">\(i\)</span>，其高维特征为 <span class="math inline">\(X_i \in \mathbb{R}^p\)</span>，其中 <span class="math inline">\(p\)</span> 可能达成百上千；二值处理 <span class="math inline">\(W_i \in \{0,1\}\)</span> 表示是否用药；连续结局 <span class="math inline">\(Y_i\)</span> 代表诸如血压降幅或至心血管事件时间之类的临床终点。</p>
+<p>在潜在结局框架下，每位患者有两个潜在结局 <span class="math inline">\(Y_i(0)\)</span> 和 <span class="math inline">\(Y_i(1)\)</span>，分别表示对照和处理下会发生什么。我们关心的因果估计目标是平均处理效应 <span class="math inline">\(\theta_0 = \mathbb{E}[Y_i(1) - Y_i(0)]\)</span>，但根本难题在于每位患者我们只能观察到一个潜在结局。要从观察性数据中识别平均处理效应，需要无混杂性假设 <span class="math inline">\(\{Y_i(0), Y_i(1)\} \perp W_i | X_i\)</span>，即在已观测特征条件下，处理分配实际上等同于随机。该假设排除了未测量混杂，即排除隐藏变量同时影响处理决策与结局的情形。</p>
+<p>正值性假设要求对 <span class="math inline">\(X\)</span> 支撑集上的所有 <span class="math inline">\(x\)</span> 都有 <span class="math inline">\(0 &lt; \mathbb{P}(W_i = 1 | X_i = x) &lt; 0\)</span>，确保特征相似的患者接受处理或对照的概率都为正。若正值性不成立，协变量空间的某些区域就只有处理组或只有对照组患者，因果比较便无从谈起。这两个假设共同使得从观察性数据识别因果效应成为可能，尽管当 <span class="math inline">\(X_i\)</span> 高维时估计仍然充满挑战。</p>
+<p>传统回归方法通过拟合结局模型 <span class="math inline">\(\mathbb{E}[Y_i | W_i, X_i] = \alpha + \theta W_i + \beta^\top X_i\)</span> 并把 <span class="math inline">\(\theta\)</span> 解释为处理效应来估计平均处理效应。当 <span class="math inline">\(p\)</span> 相对于样本量 <span class="math inline">\(n\)</span> 较小且线性函数形式设定正确时，这一方法效果良好；但在需要灵活建模的高维场景中它会崩溃。简单地用随机森林、神经网络等机器学习方法替换线性回归会引入偏误，使推断失效——因为这些方法通过正则化和模型选择，用无偏性换取了预测性能的提升。</p>
+<p>DML 框架通过部分线性回归模型 <span class="math inline">\(Y_i = \theta_0 W_i + g_0(X_i) + U_i\)</span> 应对这一挑战，其中 <span class="math inline">\(g_0(X_i) = \mathbb{E}[Y_i | X_i]\)</span> 表示结局条件均值，是混杂因子的未知函数；<span class="math inline">\(\theta_0\)</span> 是我们关心的处理效应；<span class="math inline">\(U_i\)</span> 是零均值误差项。关键在于，该模型对 <span class="math inline">\(g_0(\cdot)\)</span> 不作任何特定函数形式假设，允许混杂因子与结局之间存在任意复杂的关系。在无混杂性下，处理效应 <span class="math inline">\(\theta_0\)</span> 保留其因果解释，而函数 <span class="math inline">\(g_0(\cdot)\)</span> 充当扰动参数（干扰参数）——必须估计它以去除混杂，但它本身并非主要兴趣所在。</p>
+<p>一种朴素的做法是用机器学习估计 <span class="math inline">\(g_0(\cdot)\)</span>，把预测值从结局中减掉得到残差 <span class="math inline">\(\tilde{Y}_i = Y_i - \hat{g}(X_i)\)</span>，再把残差对处理回归得到 <span class="math inline">\(\hat{\theta}\)</span>。这种做法会失败，因为 <span class="math inline">\(\hat{g}(X_i)\)</span> 中的偏误会以种种方式传播进 <span class="math inline">\(\hat{\theta}\)</span>，使推断失效，当 <span class="math inline">\(p\)</span> 相对于 <span class="math inline">\(n\)</span> 较大时尤其如此。问题在于：即便 <span class="math inline">\(n \to \infty\)</span>，由于正则化，机器学习估计量通常也是有偏的，而这种偏误会污染处理效应估计。</p>
+<p>DML 通过正交矩条件解决这个问题，使处理效应估计对扰动参数估计中的误差近似不敏感。关键洞察是：我们还需要通过倾向得分 <span class="math inline">\(m_0(X_i) = \mathbb{E}[W_i | X_i]\)</span> 对处理机制建模，它表示给定混杂因子下接受处理的概率。正交得分函数的形式为 <span class="math inline">\(\psi(W_i, Y_i, X_i; \theta, g, m) = (W_i - m(X_i))(Y_i - g(X_i) - \theta W_i)\)</span>，它具有至关重要的 Neyman 正交性：它对扰动参数 <span class="math inline">\((g, m)\)</span> 的导数在真值处等于零。</p>
+<p>这种正交性意味着：估计 <span class="math inline">\(g_0\)</span> 和 <span class="math inline">\(m_0\)</span> 时的一阶误差不会一阶地影响处理效应估计，从而提供对模型误设的稳健性。直觉上，我们通过同时建模"混杂因子如何预测结局"和"混杂因子如何预测处理"来去除混杂，构造出一个双稳健估计量——只要其中任一模型设定正确，它就保持一致。这种双稳健性是相对传统方法的重大优势，后者要求两个模型同时设定正确。</p>
+<p>DML 算法通过样本分割与交叉拟合来消除过拟合偏误。我们把数据随机划分为 <span class="math inline">\(K\)</span> 折，通常 <span class="math inline">\(K=5\)</span> 或 <span class="math inline">\(K=10\)</span>；对每一折 <span class="math inline">\(k\)</span>，用剩下的 <span class="math inline">\(K-1\)</span> 折训练结局和倾向得分的机器学习模型，分别记为 <span class="math inline">\(\hat{g}^{(-k)}\)</span> 和 <span class="math inline">\(\hat{m}^{(-k)}\)</span>。然后用这些模型为留出折 <span class="math inline">\(k\)</span> 生成预测，确保预测从不在训练所用的同一份数据上进行。这一交叉拟合过程消除了"同一份数据既训练模型又估计处理效应"所导致的过拟合偏误。</p>
+<p>对折 <span class="math inline">\(k\)</span> 中的每个观测 <span class="math inline">\(i\)</span>，我们用其他折上训练的机器学习模型计算正交得分 <span class="math inline">\(\hat{\psi}_i = (W_i - \hat{m}^{(-k)}(X_i))(Y_i - \hat{g}^{(-k)}(X_i) - \theta W_i)\)</span>。处理效应估计解方程 <span class="math inline">\(\frac{1}{n}\sum_{i=1}^n \hat{\psi}_i = 0\)</span>，由此得到闭式解 <span class="math inline">\(\hat{\theta} = \frac{\sum_{i=1}^n (W_i - \hat{m}^{(-k)}(X_i))(Y_i - \hat{g}^{(-k)}(X_i))}{\sum_{i=1}^n W_i(W_i - \hat{m}^{(-k)}(X_i))}\)</span>，其中每个观测使用的预测都来自未包含该观测的模型。</p>
+<p>DML 背后的理论保证：<span class="math inline">\(\sqrt{n}(\hat{\theta} - \theta_0)\)</span> 依分布收敛到正态分布，其方差可以被一致估计，从而能构造有效的置信区间和假设检验。这一渐近正态性对机器学习估计量只需很弱的条件——它们只需以 <span class="math inline">\(o_p(n^{-1/4})\)</span> 的速率收敛到真值即可，这比 <span class="math inline">\(\hat{\theta}\)</span> 本身所需的 <span class="math inline">\(n^{-1/2}\)</span> 速率慢得多。许多现代机器学习方法在恰当使用时都满足这一速率条件，包括随机森林、提升树、神经网络和惩罚回归。</p>
+<p>对模型误设的稳健性也许是 DML 最重要的实际优势。即便结局模型 <span class="math inline">\(g_0(\cdot)\)</span> 和倾向得分模型 <span class="math inline">\(m_0(\cdot)\)</span> 都被误设，只要两个模型误差的乘积以足够快的速度收敛到零，处理效应估计 <span class="math inline">\(\hat{\theta}\)</span> 就近似无偏且渐近正态。这种双稳健性意味着"两个模型大致弄对一个"就足以进行有效推断，大大降低了因模型误设而得出误导性结论的风险——这正是传统方法饱受困扰之处。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p><strong>与 TMLE 的关系。</strong>医学统计界对 TMLE（靶向极大似然估计）更熟悉。DML 与 TMLE 共享同一思想血统：都用"扰动函数 + 正交化 + 双稳健"保护目标参数，都把机器学习限定在估计扰动函数（nuisance functions）的角色上。差别主要在风格：TMLE 沿极大似然/半参数效率理论的路线发展，强调 targeting step 与逐项可加更新；DML 源自 Neyman 正交得分与矩估计传统，强调得分函数对扰动误差的免疫。实践中两者在部分线性/均值模型上常常给出几乎相同的点估计与标准误，可以互相作为稳健性检验。原书第 10 章专讲 TMLE，建议对照阅读。另请注意：原文正值性公式上限印为 0（应为 1，此处 <span class="math inline">\(0 &lt; \mathbb{P}(W_i = 1 \mid X_i = x) &lt; 0\)</span> 显系笔误），译文按"公式一字不改"的规范保留原貌，读者按 <span class="math inline">\(0 &lt; \mathbb{P} &lt; 1\)</span> 理解即可。</p>
+</div>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p><strong>样本分割的代价。</strong>交叉拟合并非没有成本：其一，每个扰动模型只能用在其余 K-1 折上训练，单次训练的样本量缩水；K 折划分还引入随机性，不同随机种子下估计会有小幅波动（可固定种子或多次重复取平均缓解）。其二，计算量约扩大为原来的 K 倍，还要叠加机器学习自身的调参成本。其三，若按折分别报告诊断（如各折的倾向得分分布），解释上会更零碎。折数选择上，K=5 或 K=10 是常用默认值：K 太小则每折训练样本损失大，K 太大则各折模型差异小、更接近全样本拟合，交叉拟合消除过拟合的效果打折扣。理论文献中常见的折数是随样本量增长的，但对中等规模的临床数据集，5 折或 10 折已足够。还要强调：交叉拟合只解决"过拟合污染推断"这一个问题，<strong>不能</strong>修复未测量混杂或正值性违背——样本分割不是万能药。</p>
+</div>
+<h2>14.2 心血管疾病预防：一个 DML 案例研究</h2>
+<p>我们通过一项真实的观察性研究来演示 DML：考察强化血压管理能否减少心血管事件。分析使用电子健康档案，其中包含丰富的患者信息——人口学特征、合并症、实验室检查值、生命体征和既往用药。我们关心的处理是强化血压控制，定义为目标收缩压低于 120 mmHg，对照则是低于 140 mmHg 的标准控制；结局是五年心血管事件风险，以连续风险评分度量。</p>
+<p>高维的混杂结构反映了这样一个现实：处理决策以复杂的方式取决于众多患者特征。医生基于心血管风险画像、禁忌证、患者偏好和临床判断来处方强化血压控制，而临床判断涉及众多因素的非线性组合。假设线性关系、或要求研究者预先指定交互项的传统回归方法，在此情境下将难以充分控制混杂；而 DML 能灵活适应真实的函数形式。</p>
+<pre class="sourceCode r"><code># 加载所需的库
+if (!requireNamespace("DoubleML", quietly = TRUE)) install.packages("DoubleML")
+if (!requireNamespace("mlr3", quietly = TRUE)) install.packages("mlr3")
+if (!requireNamespace("mlr3learners", quietly = TRUE)) install.packages("mlr3learners")
+if (!requireNamespace("data.table", quietly = TRUE)) install.packages("data.table")
+if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
+if (!requireNamespace("ranger", quietly = TRUE)) install.packages("ranger")
+
+library(DoubleML)
+library(mlr3)</code></pre>
+<pre><code>## Warning: package 'mlr3' was built under R version 4.5.1</code></pre>
+<p><strong>输出解读：</strong>这条 Warning 只是提示 mlr3 包是在 R 4.5.1 下编译的。若你的 R 版本较旧，通常仍可正常运行；只有当后续出现莫名的函数错误时，才需要考虑升级 R 或重装该包。</p>
+<pre class="sourceCode r"><code>library(mlr3learners)</code></pre>
+<pre><code>## Warning: package 'mlr3learners' was built under R version 4.5.1</code></pre>
+<p><strong>输出解读：</strong>同样是版本编译提示，无需处理。</p>
+<pre class="sourceCode r"><code>library(data.table)
+library(ggplot2)
+library(ranger)</code></pre>
+<pre><code>## ranger 0.17.0 using 2 threads (default). Change with num.threads in ranger() and predict(), options(Ncpus = N), options(ranger.num.threads = N) or environment variable R_RANGER_NUM_THREADS.</code></pre>
+<pre><code>## 
+## Attaching package: 'ranger'</code></pre>
+<pre><code>## The following object is masked from 'package:randomForest':
+## 
+##     importance</code></pre>
+<p><strong>输出解读：</strong>ranger 0.17.0 默认使用 2 个线程，可通过 <code>num.threads</code> 参数调整；同时它屏蔽了 randomForest 包的 <code>importance</code> 函数——若同会话中还加载了 randomForest 并想调用其 <code>importance()</code>，需写 <code>randomForest::importance()</code>。</p>
+<pre class="sourceCode r"><code>set.seed(2024)
+
+# 模拟贴近真实的观察性医疗卫生数据
+n &lt;- 3000
+
+# 生成高维患者特征
+age &lt;- pmax(40, pmin(85, rnorm(n, 65, 10)))
+bmi &lt;- pmax(18, pmin(45, rnorm(n, 28, 5)))
+diabetes &lt;- rbinom(n, 1, plogis(-2 + 0.03 * age + 0.05 * (bmi - 28)))
+smoking &lt;- rbinom(n, 1, plogis(-1.5 + 0.02 * age - 0.3 * diabetes))
+kidney_disease &lt;- rbinom(n, 1, plogis(-3 + 0.04 * age + 0.5 * diabetes))
+prior_cvd &lt;- rbinom(n, 1, plogis(-2.5 + 0.05 * age + 0.4 * diabetes + 0.6 * smoking))
+
+# 具有真实相关性的实验室指标
+cholesterol &lt;- pmax(120, pmin(300, rnorm(n, 200 + 20 * diabetes, 35)))
+hdl &lt;- pmax(20, pmin(100, rnorm(n, 50 - 5 * bmi/28, 12)))
+creatinine &lt;- pmax(0.5, pmin(3.0, rnorm(n, 1.0 + 0.5 * kidney_disease + 0.01 * age, 0.3)))
+hba1c &lt;- pmax(4.5, pmin(12.0, rnorm(n, 5.5 + 3 * diabetes, 1.2)))
+
+# 基线收缩压，含非线性关系
+baseline_sbp &lt;- 120 + 15 * (age - 65)/20 + 8 * (bmi - 28)/5 + 
+  10 * diabetes + 5 * smoking + 12 * kidney_disease + 8 * prior_cvd +
+  rnorm(n, 0, 12)
+baseline_sbp &lt;- pmax(110, pmin(180, baseline_sbp))
+
+# 增加维度的额外混杂因子
+education_years &lt;- pmax(8, pmin(20, rnorm(n, 14, 3)))
+exercise_hours &lt;- pmax(0, pmin(20, rnorm(n, 3 - 0.5 * bmi/28, 2)))
+medications_count &lt;- rpois(n, lambda = 1 + prior_cvd + diabetes + kidney_disease)
+family_history &lt;- rbinom(n, 1, 0.3 + 0.2 * prior_cvd)
+
+# 构造增加复杂度的交互特征
+age_bmi_interaction &lt;- scale(age * bmi)
+diabetes_smoking_interaction &lt;- diabetes * smoking
+
+# 合并所有协变量
+X &lt;- data.frame(
+  age, bmi, diabetes, smoking, kidney_disease, prior_cvd,
+  cholesterol, hdl, creatinine, hba1c, baseline_sbp,
+  education_years, exercise_hours, medications_count, family_history,
+  age_bmi_interaction, diabetes_smoking_interaction
+)
+
+# 反映临床决策的复杂处理分配机制
+propensity_score &lt;- plogis(
+  -2.5 + 0.04 * age + 0.05 * (baseline_sbp - 140)/10 +
+  0.6 * prior_cvd + 0.4 * diabetes - 0.3 * kidney_disease +
+  0.02 * cholesterol/10 - 0.02 * hdl/10 + 0.3 * smoking +
+  0.15 * age_bmi_interaction - 0.2 * (medications_count &gt; 3)
+)
+W &lt;- rbinom(n, 1, propensity_score)
+
+# 具有复杂函数形式的异质处理效应
+true_ate &lt;- -3.5
+individual_effects &lt;- true_ate + 
+  0.8 * (baseline_sbp - 140)/10 - 0.5 * (age &gt; 70) +
+  0.6 * prior_cvd - 0.4 * kidney_disease +
+  rnorm(n, 0, 1.5)
+
+# 生成潜在结局
+Y0 &lt;- 15 + 0.15 * (age - 65) + 0.1 * (bmi - 28) + 
+  3 * diabetes + 2 * smoking + 4 * kidney_disease + 
+  5 * prior_cvd + 0.08 * (baseline_sbp - 140) +
+  0.02 * cholesterol - 0.03 * hdl + 2 * creatinine +
+  rnorm(n, 0, 3.5)
+
+Y1 &lt;- Y0 + individual_effects
+
+# 观测结局
+Y &lt;- W * Y1 + (1 - W) * Y0
+
+# 为 DoubleML 创建数据结构
+data_dml &lt;- data.table(Y = Y, W = W, X)
+
+cat("Observational Study Summary:\n")</code></pre>
+<pre><code>## Observational Study Summary:</code></pre>
+<p><strong>输出解读：</strong>这段模拟是整章案例的"数据生成过程"，值得逐块读懂。① 先造 17 个维度的患者特征（5 个人口学/合并症 + 4 个实验室指标 + 基线收缩压 + 4 个生活方式/用药变量 + 2 个交互项）；② <code>propensity_score</code> 用 logit 形式把基线收缩压、既往心血管病、糖尿病、用药数量等 10 余项信息揉进处理概率，模拟"医生按风险画像处方"的真实决策；③ 个体处理效应围绕 -3.5 波动，且随基线收缩压、年龄、合并症变化——即效应是异质的，总体 ATE 约为 -3.472；④ 按 <code>W</code> 实现"每人只观测到一个潜在结局"。真实 ATE 是后面检验 DML 表现的基准线。</p>
+<pre class="sourceCode r"><code>cat("Total patients:", n, "\n")</code></pre>
+<pre><code>## Total patients: 3000</code></pre>
+<p><strong>输出解读：</strong>总样本量 3000 人。</p>
+<pre class="sourceCode r"><code>cat("Control group:", sum(W == 0), "patients\n")</code></pre>
+<pre><code>## Control group: 835 patients</code></pre>
+<p><strong>输出解读：</strong>对照组（标准血压控制）835 人。</p>
+<pre class="sourceCode r"><code>cat("Treatment group:", sum(W == 1), "patients\n")</code></pre>
+<pre><code>## Treatment group: 2165 patients</code></pre>
+<p><strong>输出解读：</strong>处理组（强化血压控制）2165 人，约为对照组的 2.6 倍，模拟了真实世界中"高危患者更常接受强化管理"导致的组间不平衡。</p>
+<pre class="sourceCode r"><code>cat("Mean propensity score:", round(mean(propensity_score), 3), "\n")</code></pre>
+<pre><code>## Mean propensity score: 0.708</code></pre>
+<p><strong>输出解读：</strong>平均倾向得分 0.708，与处理组占比 72% 相互印证。</p>
+<pre class="sourceCode r"><code>cat("Propensity score range: [", round(min(propensity_score), 3), 
+    ",", round(max(propensity_score), 3), "]\n")</code></pre>
+<pre><code>## Propensity score range: [ 0.176 , 0.96 ]</code></pre>
+<p><strong>输出解读：</strong>倾向得分范围为 [0.176, 0.96]：最低者也非零、最高者未到 1，说明整个协变量空间上都存在一定的正值性，但上界 0.96 已相当极端——接近 1 的个体几乎必然接受处理，可类比信息很少。</p>
+<pre class="sourceCode r"><code>cat("\nNaive difference in means:", round(mean(Y[W == 1]) - mean(Y[W == 0]), 3), "\n")</code></pre>
+<pre><code>## 
+## Naive difference in means: -0.334</code></pre>
+<p><strong>输出解读：</strong>朴素均值差为 -0.334，远小于真实 ATE（约 -3.47）。这就是未调整混杂的"表面疗效"。</p>
+<pre class="sourceCode r"><code>cat("True average treatment effect:", round(mean(individual_effects), 3), "\n")</code></pre>
+<pre><code>## True average treatment effect: -3.472</code></pre>
+<p><strong>输出解读：</strong>模拟设定的真实平均处理效应为 -3.472，是本章所有估计量的"标准答案"。</p>
+<pre class="sourceCode r"><code>cat("Confounding bias:", round((mean(Y[W == 1]) - mean(Y[W == 0])) - mean(individual_effects), 3), "\n")</code></pre>
+<pre><code>## Confounding bias: 3.138</code></pre>
+<p><strong>输出解读：</strong>混杂偏误高达 +3.138：医生倾向于给风险更高的患者（基线收缩压更高、有既往心血管病、糖尿病）开强化降压，而这些患者无论治疗与否，结局风险评分都更差。于是处理组里"垫高"了基线风险人群，把两组均值差向零拉近——真实疗效被掩盖了近九成。这正是 DML 要对付的敌人。</p>
+<p>该模拟展示出可观的混杂偏误：朴素均值差与真实因果效应相去甚远。这是因为接受强化血压控制的患者与接受标准治疗的患者在诸多特征上系统性地不同，而这些差异独立于治疗影响心血管结局。简单地比较两组结局，会把治疗的因果效应与这些基线差异造成的选择偏误混为一谈。</p>
+<pre class="sourceCode r"><code># 初始化 DoubleML 数据对象
+obj_dml_data <- DoubleMLData$new(data_dml, y_col = "Y", d_cols = "W")
+
+# 配置扰动参数的机器学习方法
+# 使用随机森林进行灵活的非参数估计
+learner_g <- lrn("regr.ranger", num.trees = 500, max.depth = 8, 
+                 min.node.size = 20, mtry = 5)
+learner_m <- lrn("classif.ranger", num.trees = 500, max.depth = 8,
+                 min.node.size = 20, mtry = 5)
+
+# 初始化部分线性回归模型
+dml_plr <- DoubleMLPLR$new(obj_dml_data, 
+                           ml_g = learner_g,
+                           ml_m = learner_m,
+                           n_folds = 5,
+                           score = "partialling out")</code></pre>
+<pre><code>## Warning: The argument ml_g was renamed to ml_l. Please adapt the argument name accordingly. ml_g is redirected to ml_l.
+## The redirection will be removed in a future version.</code></pre>
+<p><strong>输出解读：</strong>新版 DoubleML 把结局模型参数 <code>ml_g</code> 更名为 <code>ml_l</code>（l 代表 nuisance function 的统一起名），旧名暂时被重定向、未来版本将移除。代码行为不受影响，但建议尽快改用 <code>ml_l</code>。<code>learner_g</code> 用回归随机森林拟合结局条件均值 <code>g_0</code>，<code>learner_m</code> 用分类随机森林拟合倾向得分 <code>m_0</code>；<code>n_folds = 5</code> 指定 5 折交叉拟合；<code>score = "partialling out"</code> 选择"残差化"得分（另一种是 "IV-type"得分，二者在本例中渐近等价）。</p>
+<pre class="sourceCode r"><code># 使用交叉拟合拟合模型
+dml_plr$fit()
+
+cat("\n=== Double Machine Learning Results ===\n\n")</code></pre>
+<pre><code>## 
+## === Double Machine Learning Results ===</code></pre>
+<p><strong>输出解读：</strong><code>fit()</code> 内部按 5 折交叉拟合执行：对每一折，用其余 4 折训练随机森林 <code>g_hat^(-k)</code> 与 <code>m_hat^(-k)</code>，再为留出折生成预测，最后汇总所有正交得分解出处理效应估计 <code>theta_hat</code>。</p>
+<pre class="sourceCode r"><code>cat("Average Treatment Effect Estimate:", round(dml_plr$coef, 3), "\n")</code></pre>
+<pre><code>## Average Treatment Effect Estimate: -3.433</code></pre>
+<p><strong>输出解读：</strong>DML 估计的 ATE 为 -3.433，与真实值 -3.472 仅差 0.039——高维混杂被有效控制住了。</p>
+<pre class="sourceCode r"><code>cat("Standard Error:", round(dml_plr$se, 3), "\n")</code></pre>
+<pre><code>## Standard Error: 0.159</code></pre>
+<p><strong>输出解读：</strong>标准误 0.159，约为效应量的 4.6%，估计相当精确。</p>
+<pre class="sourceCode r"><code>cat("95% Confidence Interval: [", 
+    round(dml_plr$coef - 1.96 * dml_plr$se, 3), ",",
+    round(dml_plr$coef + 1.96 * dml_plr$se, 3), "]\n")</code></pre>
+<pre><code>## 95% Confidence Interval: [ -3.744 , -3.122 ]</code></pre>
+<p><strong>输出解读：</strong>95% 置信区间 [-3.744, -3.122] 完整覆盖真实 ATE（-3.472），且不含 0——这正是"用自适应机器学习也能配出有效置信区间"的直观展示。</p>
+<pre class="sourceCode r"><code>cat("P-value:", format(dml_plr$pval, scientific = TRUE, digits = 3), "\n")</code></pre>
+<pre><code>## P-value: 1.12e-103</code></pre>
+<p><strong>输出解读：</strong>p 值小到 1.12×10<sup>-103</sup>，"无处理效应"的原假设被彻底拒绝。</p>
+<pre class="sourceCode r"><code># 与真实效应比较
+cat("\nTrue ATE:", round(mean(individual_effects), 3), "\n")</code></pre>
+<pre><code>## 
+## True ATE: -3.472</code></pre>
+<p><strong>输出解读：</strong>再次打印真实 ATE 作为对照基准。</p>
+<pre class="sourceCode r"><code>cat("Estimation error:", round(dml_plr$coef - mean(individual_effects), 3), "\n")</code></pre>
+<pre><code>## Estimation error: 0.039</code></pre>
+<p><strong>输出解读：</strong>估计误差 0.039，落在标准误（0.159）的四分之一以内，属正常抽样波动范围。</p>
+<p>DML 估计成功地在抽样误差范围内还原了真实的平均处理效应，展示了该方法通过灵活的机器学习模型控制高维混杂的能力。置信区间适当地覆盖了真实参数，验证了理论保证——即便扰动参数的估计用的是自适应机器学习程序，渐近正态性依然成立。</p>
+<p>倾向得分分布显示，处理组与对照组在协变量空间的大部分区域重叠良好，支持正值性假设的合理性。极端处重叠很小的区域提示：部分患者基于其特征，接受处理的概率极高或极低；但分布的绝大部分存在实质重叠，因果比较在那些区域识别良好。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p><strong>部分线性模型视角。</strong>本章的 <code>DoubleMLPLR</code> 估计的是部分线性模型 <span class="math inline">\(Y_i = \theta_0 W_i + g_0(X_i) + U_i\)</span>。理解它的一个经典桥梁是 Frisch-Waugh-Lovelock（FWL）定理：把 <span class="math inline">\(Y\)</span> 和 <span class="math inline">\(W\)</span> 分别对 <span class="math inline">\(X\)</span> 回归得到两个残差，再把残差对残差回归，斜率就是 <span class="math inline">\(\hat{\theta}\)</span>——本章代码末尾的"残差对残差图"画的就是这件事。DML 与手写 FWL 的唯一区别是：扰动模型换成了随机森林（而非线性回归），且残差由交叉拟合产生（而非全样本回代），从而兼得灵活性与有效推断。也可以把 <span class="math inline">\((W - m(X))(Y - g(X))\)</span> 理解为一种"半参数 IPW × 残差回归"的混合体：它同时修正结局侧的混杂（减 <span class="math inline">\(g(X)\)</span>）和处理侧的混杂（减 <span class="math inline">\(m(X)\)</span>），任一侧面修对都能救命——这就是双稳健。注意部分线性模型假设处理效应是常数 <span class="math inline">\(\theta_0\)</span>；若效应随 <span class="math inline">\(X\)</span> 变化（本模拟正是如此），DML 估计的是加权的平均效应，解读时应结合异质性分析（本章 p5 图与第 9 章元学习器）。</p>
+</div>
+<pre class="sourceCode r"><code># 使用替代机器学习方法的敏感性分析
+# 梯度提升用于对照
+if (!requireNamespace("xgboost", quietly = TRUE)) install.packages("xgboost")
+
+learner_g_boost <- lrn("regr.xgboost", nrounds = 100, max_depth = 6, 
+                       eta = 0.1, objective = "reg:squarederror")
+learner_m_boost <- lrn("classif.xgboost", nrounds = 100, max_depth = 6,
+                       eta = 0.1, objective = "binary:logistic")
+
+dml_plr_boost <- DoubleMLPLR$new(obj_dml_data,
+                                 ml_g = learner_g_boost,
+                                 ml_m = learner_m_boost,
+                                 n_folds = 5,
+                                 score = "partialling out")</code></pre>
+<pre><code>## Warning: The argument ml_g was renamed to ml_l. Please adapt the argument name accordingly. ml_g is redirected to ml_l.
+## The redirection will be removed in a future version.</code></pre>
+<p><strong>输出解读：</strong>同样的 DML 流程，只是把随机森林换成梯度提升树（xgboost）作敏感性分析。若两套差异很大的算法给出几乎相同的 ATE，说明结论不依赖特定算法的巧合。</p>
+<pre class="sourceCode r"><code>dml_plr_boost$fit()
+
+cat("\n=== Sensitivity Analysis: Alternative ML Methods ===\n\n")</code></pre>
+<pre><code>## 
+## === Sensitivity Analysis: Alternative ML Methods ===</code></pre>
+<p><strong>输出解读：</strong>梯度提升版 DML 拟合同样完成，下面打印两版结果对照。</p>
+<pre class="sourceCode r"><code>cat("Random Forest Estimate:", round(dml_plr$coef, 3), 
+    "(", round(dml_plr$se, 3), ")\n")</code></pre>
+<pre><code>## Random Forest Estimate: -3.433 ( 0.159 )</code></pre>
+<p><strong>输出解读：</strong>随机森林版：-3.433（标准误 0.159）。</p>
+<pre class="sourceCode r"><code>cat("Gradient Boosting Estimate:", round(dml_plr_boost$coef, 3),
+    "(", round(dml_plr_boost$se, 3), ")\n")</code></pre>
+<pre><code>## Gradient Boosting Estimate: -3.43 ( 0.159 )</code></pre>
+<p><strong>输出解读：</strong>梯度提升版：-3.430（标准误 0.159），与随机森林版几乎重合。</p>
+<pre class="sourceCode r"><code>cat("Difference:", round(abs(dml_plr$coef - dml_plr_boost$coef), 3), "\n")</code></pre>
+<pre><code>## Difference: 0.003</code></pre>
+<p><strong>输出解读：</strong>两版估计仅差 0.003，远小于各自标准误。</p>
+<pre class="sourceCode r"><code>if (abs(dml_plr$coef - dml_plr_boost$coef) &lt; 0.5) {
+  cat("\nInterpretation: Estimates stable across methods, suggesting robust results\n")
+} else {
+  cat("\nInterpretation: Substantial sensitivity to ML method choice\n")
+}</code></pre>
+<pre><code>## 
+## Interpretation: Estimates stable across methods, suggesting robust results</code></pre>
+<p><strong>输出解读：</strong>程序按预设阈值 0.5 自动判定：估计跨方法稳定，结果稳健。实际研究中可把这个阈值改得更小（如 0.1 倍标准误），或改用 SuperLearner 集成替代人工二选一。</p>
+<p>敏感性分析显示，处理效应估计在不同机器学习方法间保持稳定，增强了我们对结论稳健性的信心。当估计随方法选择而大幅波动时，提示样本量不足、重叠不良或识别假设被违背，需要进一步调查。跨方法的稳定性表明，双稳健性正在提供对模型误设的保护。</p>
+<p>正交化回归的可视化演示了 DML 如何去除混杂：先从混杂因子预测结局和处理，再考察两个残差之间的关系。残差代表结局与处理中无法被已测混杂因子解释的变异，二者关系的斜率即估计出已剔除混杂偏误的处理效应。该手工计算与 DML 估计之间的微小差别来自交叉拟合——它阻止了过拟合偏误。</p>
+<pre class="sourceCode r"><code>library(ggplot2)
+library(data.table)
+library(gridExtra)</code></pre>
+<pre><code>## 
+## Attaching package: 'gridExtra'</code></pre>
+<pre><code>## The following object is masked from 'package:randomForest':
+## 
+##     combine</code></pre>
+<pre><code>## The following object is masked from 'package:dplyr':
+## 
+##     combine</code></pre>
+<p><strong>输出解读：</strong>gridExtra 的 <code>grid.arrange()</code> 用于把多张图拼成矩阵；它同样屏蔽了 randomForest 与 dplyr 的 <code>combine</code> 函数，如需原版请用 <code>::</code> 显式调用。</p>
+<pre class="sourceCode r"><code># 假设以下对象已存在于全局环境：
+# data_dml（包含 Y、W 和协变量的 data.table）、propensity_score、
+# dml_plr（拟合好的 DoubleMLPLR 对象）、真实的 individual_effects、Y0、Y1
+
+# 1) 按处理组绘制倾向得分密度
+p1 &lt;- ggplot(data = as.data.frame(data_dml)) +
+  geom_density(aes(x = propensity_score, fill = factor(W)), alpha = 0.4) +
+  labs(x = "倾向得分", fill = "处理",
+       title = "按处理组分的倾向得分分布") +
+  theme_minimal()
+
+# 2) 关键协变量按处理组的分布：age 与 baseline_sbp
+p2a &lt;- ggplot(as.data.frame(data_dml)) +
+  geom_density(aes(x = age, color = factor(W)), size = 1) +
+  labs(x = "年龄", color = "处理", title = "按处理组分的年龄分布") +
+  theme_minimal()
+
+p2b &lt;- ggplot(as.data.frame(data_dml)) +
+  geom_density(aes(x = baseline_sbp, color = factor(W)), size = 1) +
+  labs(x = "基线收缩压", color = "处理", title = "按处理组分的基线收缩压分布") +
+  theme_minimal()
+
+# 3) IPW 加权前后的标准化均值差（SMD）
+# 计算 SMD 的函数
+compute_smd &lt;- function(x, w, treat) {
+  # x：数值向量
+  # w：观测权重（未加权时取 1）
+  # treat：二值处理指示变量 0/1
+  x0 &lt;- x[treat == 0]
+  x1 &lt;- x[treat == 1]
+  w0 &lt;- w[treat == 0]
+  w1 &lt;- w[treat == 1]
+  mean0 &lt;- sum(w0 * x0)/sum(w0)
+  mean1 &lt;- sum(w1 * x1)/sum(w1)
+  var0 &lt;- sum(w0 * (x0 - mean0)^2)/sum(w0)
+  var1 &lt;- sum(w1 * (x1 - mean1)^2)/sum(w1)
+  pooled_sd &lt;- sqrt((var0 + var1)/2)
+  (mean1 - mean0)/pooled_sd
+}
+
+df &lt;- as.data.frame(data_dml)
+vars_for_balance &lt;- c('age','bmi','baseline_sbp','cholesterol','hdl','creatinine','hba1c')
+
+# 未加权 SMD
+smd_unw &lt;- sapply(vars_for_balance, function(v) compute_smd(df[[v]], rep(1, nrow(df)), df$W))
+
+# 由 propensity_score 构造 IPW 权重
+ipw &lt;- with(df, ifelse(W == 1, 1/propensity_score, 1/(1 - propensity_score)))
+# 稳定权重，降低极端值的影响
+ipw &lt;- ipw / mean(ipw)
+
+smd_ipw &lt;- sapply(vars_for_balance, function(v) compute_smd(df[[v]], ipw, df$W))
+
+smd_dt &lt;- data.frame(
+  variable = vars_for_balance,
+  unweighted = as.numeric(smd_unw),
+  ipw = as.numeric(smd_ipw)
+)
+
+smd_long &lt;- reshape2::melt(smd_dt, id.vars = 'variable', variable.name = 'method', value.name = 'smd')
+
+p3 &lt;- ggplot(smd_long, aes(x = reorder(variable, abs(smd)), y = smd, fill = method)) +
+  geom_col(position = position_dodge(width = 0.8)) +
+  coord_flip() +
+  labs(x = '', y = '标准化均值差（SMD）',
+       title = '协变量平衡性：未加权 vs IPW 加权') +
+  geom_hline(yintercept = 0.1, linetype = 'dashed', color = 'darkred') +
+  theme_minimal()
+
+# 4) 残差对残差图，演示正交化
+# 仅为可视化：我们在全样本上训练扰动模型（警告：未交叉拟合）
+# 这只是为了让图可读；DML 估计本身使用交叉拟合
+
+# 拟合结局（g）与处理（m）的灵活回归器
+# 使用 ranger 与 glm 做演示
+library(ranger)
+fit_g &lt;- ranger(Y ~ . - W, data = df, num.trees = 500)
+pred_g &lt;- predict(fit_g, data = df)$predictions
+
+fit_m &lt;- glm(W ~ . - Y, data = df, family = binomial)
+m_pred &lt;- predict(fit_m, newdata = df, type = 'response')
+
+# 残差
+res_y &lt;- df$Y - pred_g
+res_w &lt;- df$W - m_pred
+
+res_df &lt;- data.frame(res_y = res_y, res_w = res_w, baseline_sbp = df$baseline_sbp, age = df$age)
+
+p4 &lt;- ggplot(res_df, aes(x = res_w, y = res_y)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = 'lm', se = TRUE) +
+  labs(x = '残差化处理（W - m_hat）',
+       y = '残差化结局（Y - g_hat）',
+       title = '残差对残差图（演示正交化）') +
+  theme_minimal()
+
+# 标注 DML 估计值
+dml_coef &lt;- dml_plr$coef
+p4 &lt;- p4 + annotate('text', x = min(res_df$res_w, na.rm = TRUE),
+                   y = max(res_df$res_y, na.rm = TRUE),
+                   label = paste0('DML ATE = ', round(dml_coef, 3)), hjust = 0)
+
+# 5) 异质效应可视化：残差化结局 vs baseline_sbp，配 loess 平滑
+p5 &lt;- ggplot(res_df, aes(x = baseline_sbp, y = res_y/res_w)) +
+  # 因为除以 res_w 不稳定，改用稳定的伪效应：loess 局部斜率估计
+  geom_point(alpha = 0.25) +
+  geom_smooth(aes(y = res_y), method = 'loess', se = TRUE) +
+  labs(x = '基线收缩压', y = '残差化结局（Y - g_hat）',
+       title = '按基线收缩压平滑的残差结局（异质性可视化）') +
+  theme_minimal()
+
+# 6) 比较朴素均值差、DML 估计与真实 ATE
+naive &lt;- mean(df$Y[df$W == 1]) - mean(df$Y[df$W == 0])
+true_ate &lt;- mean(individual_effects)
+
+est_df &lt;- data.frame(
+  method = c('朴素差值', 'DML 估计', '真实 ATE'),
+  estimate = c(naive, dml_plr$coef, true_ate),
+  se = c(NA, dml_plr$se, NA)
+)
+
+p6 &lt;- ggplot(est_df, aes(x = method, y = estimate, ymin = estimate - 1.96*se, ymax = estimate + 1.96*se)) +
+  geom_point(size = 4) +
+  geom_errorbar(width = 0.2, na.rm = TRUE) +
+  labs(title = '估计值比较', y = '估计值（五年风险评分变化）') +
+  theme_minimal()
+
+# 排列并保存图形
+# 在 RStudio / 交互会话中展示拼图
+grid.arrange(p1, p3, p4, p6, ncol = 2)</code></pre>
+<pre><code>## `geom_smooth()` using formula = 'y ~ x'</code></pre>
+<p><strong>输出解读：</strong>这条提示说明 <code>geom_smooth()</code> 默认用公式 'y ~ x'（线性平滑）。拼图包含四张子图：左上为按处理组的倾向得分密度（看重叠），右上为协变量平衡性对比（看 IPW 是否把 SMD 压到 0.1 虚线以下），左下为残差对残差散点与拟合线（斜率即正交化后的处理效应），右下为三种估计的总对比。</p>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-52-1.png" width="672" alt="DML 案例研究的四联图：倾向得分分布、协变量平衡性、残差对残差图与估计值比较" /></p>
+<h3>14.2.1 临床解读与实施</h3>
+<p>DML 分析揭示：与标准控制相比，强化血压控制平均使五年心血管风险降低约 3.5 个百分点。该估计考虑了复杂的混杂结构——接受强化治疗的患者在众多特征上系统地区别于接受标准治疗者。假设线性关系、或要求研究者预先指定相关混杂因子的传统回归分析，鉴于本观察性情境中高维、非线性的混杂，很可能给出有偏估计。</p>
+<p>置信区间提供了具有临床意义的精度，支持决策：95% 区间不含 0，表明获益具有统计学意义。p 值为"无处理效应"的原假设提供了正式的检验证据，不过效应的大小与临床意义比单纯的统计显著性更重要。医生可以把这一证据与临床判断、患者偏好和治疗负担的考量结合起来，指导血压管理策略。</p>
+<p>证明估计在不同机器学习方法间保持稳定的敏感性分析，通过显示结论不取决于任意的算法选择，增强了对发现的信心。在应用于真实医疗数据时，研究者应常规开展此类敏感性分析，以评估稳健性、识别因果结论的潜在弱点。对方法选择的高度敏感性，是在发出"需要额外调查"的信号，而不是盲目接受任何单一估计。</p>
+<p>在临床实践中实施，需要与电子健康档案系统集成，让患者特征自动填充结局与处理倾向得分的预测模型。与训练复杂深度学习模型相比，其计算需求仍然不高，对于具备足够数据基础设施的医疗系统而言，DML 用于常规使用是可行的。当与临床专业知识结合——由专业知识指导变量选择、识别潜在混杂因子、并在医学知识框架内解读发现时，该方法效果尤为出色。</p>
+<p>双稳健性为模型误设提供了实用的保险——把统计方法应用到纷乱的现实数据时，模型误设不可避免地会发生。即使结局模型或倾向得分模型有一个严重错误，只要另一个模型充分捕捉到混杂结构，DML 往往仍能给出合理的处理效应估计。这种稳健性使该方法比传统方法更可靠——后者在关键建模假设被违背时会彻底失效。</p>
+<h3>14.2.2 假设与潜在违背</h3>
+<p>DML 结论的有效性关键取决于无混杂性假设，即在已观测特征条件下处理分配实际上等同于随机。在观察性医疗数据中，该假设要求所有同时影响处理决策与结局的变量都被测量并纳入分析。未测量混杂始终是观察性因果推断的阿喀琉斯之踵，DML 对"同时影响处理与结局的隐藏因子"造成的偏误不提供任何保护。</p>
+<p>研究者应通过临床知识和敏感性分析，仔细考量潜在的未测量混杂因子——评估未测量混杂需要强到什么程度才能推翻结论。如果患者偏好、医生技能、机构特征等重要混杂因子没有被数据捕获，那么无论方法多复杂，因果估计都可能有偏。当无混杂性难以成立时，可能需要工具变量方法或其他识别策略。</p>
+<p>正值性假设要求特征相似的患者接受每种处理水平的概率都为正。当某些类型的患者因禁忌证、临床指南或诊疗模式而确定性地接受或不接受处理时，违背就会发生。在重叠不良的区域，可比患者很少，DML 估计会变得不稳定并可能有偏。</p>
+<p>考察倾向得分分布有助于诊断正值性违背：长尾或重叠差提示因果识别薄弱的区域。修剪极端倾向得分、或把分析限制在重叠良好的区域，可以提高可靠性，代价是外推性下降。研究者必须谨慎交代：估计只适用于重叠充分的亚人群，而非全部患者。</p>
+<p>该方法假设机器学习算法能以足够的收敛速率估计扰动参数。当样本量相对协变量维度较小、或真实函数形式极其复杂时，即便灵活的机器学习方法也可能达不到必要的收敛速率。实践中的评估包括考察结局模型与倾向得分模型的预测性能——预测准确度差提示潜在问题。</p>
+<p>对超参数选择的敏感性、以及在不同机器学习方法间的不稳定性，预示收敛速率假设可能被违背。在这种情况下，研究者可能需要更大的样本、通过领域知识指导的变量选择做降维、或改用依赖不同假设的替代识别策略。当样本量大到机器学习能可靠地从已测混杂因子预测结局与处理倾向时，该方法表现最佳。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p><strong>正值性诊断与修剪的代价。</strong>倾向得分接近 0 或 1 的个体几乎没有"反事实同伴"，IPW/DML 对它们的依赖会急剧放大方差（表现为权重爆炸）。常用诊断：①看 p1 图中两组密度是否在各取值上都有重叠；②看 SMD 平衡图（p3），未加权 SMD &gt; 0.1 说明组间不均衡；③直接统计倾向得分 &lt; 0.1 或 &gt; 0.9 的个体占比。修剪（trimming）是最常用的补救，但要清醒认识代价：修剪改变了估计目标——从 ATE 变成"修剪后人群"的效应（类似 ATP，average treatment effect on the treated/overlapped），报告中必须明说。另一个常被忽视的选项是用重叠权重（overlap weights）替代 IPW，它直接 targeting 重叠最好的人群。切记：正值性只能在<em>已测协变量</em>上评估，它永远无法发现未测量混杂导致的重叠缺失。</p>
+</div>
+<h2>14.3 扩展与高级应用</h2>
+<p>部分线性模型只是 DML 框架的一个应用，其扩展可处理医疗卫生研究中出现的各类因果问题。<strong>交互回归模型</strong>（interactive regression model）允许处理效应随已观测特征变化，形式为 <span class="math inline">\(Y_i = g_0(X_i) + X_i^\top \theta_0 W_i + U_i\)</span>，可以估计类似因果森林的异质处理效应，但底层假设与方法不同。这一形式支持精准医疗应用——治疗获益取决于患者特征。</p>
+<p>用工具变量估计局部平均处理效应，把 DML 扩展到"单靠观察性数据无法识别因果效应"的情境。当存在有效工具变量时，DML 能在用机器学习灵活控制已测混杂因子的同时，高效估计顺应者平均因果效应。这一组合同时应对已测与未测量混杂，不过在多数医疗应用中，找到有效工具变量依然困难。</p>
+<p>用 DML 做中介分析，把总处理效应分解为经由已测中介变量运作的直接通路与间接通路。这使研究者能理解治疗影响结局的机制，支持开发瞄准关键因果通路的更有效干预。该方法需要关于中介—结局关系混杂的额外识别假设，且这些假设必须被仔细论证。</p>
+<p>动态治疗方案的估计把 DML 应用于纵向场景，处理决策随时间顺序发生。这类应用需要仔细建模时变混杂——既往结局影响未来的处理决策，形成使因果推断复杂化的反馈环路。DML 与逆概率加权或 g-计算方法结合，可以估计随患者状态演进而调整的最优动态治疗策略。</p>
+<p>多处理比较把框架扩展到有两个以上治疗选项的场景，可同时估计多个处理对比的效应。这支持为几种竞争疗法之间的选择提供信息的效果比较研究。当治疗共享共同特征、或某些处理对比比其他对比更可靠时，该方法可纳入约束以提高精度。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p><strong>DML 与机器学习因果方法家族的分工。</strong>面对"高维协变量 + 异质效应"，第 7 章的因果森林与第 9 章的元学习器主攻 CATE（条件平均处理效应）估计，DML 家族同样有自己的 CATE 版本（交互回归模型、DML + 部分线性 + 分群）。实践中三者的分工大致是：只关心总体 ATE 且怀疑函数形式未知时，选 DML 部分线性模型；关心"谁受益更多"并愿意接受更强的平滑/稀疏假设时，选因果森林或元学习器；怀疑未测量混杂时，先找工具变量走 DML-IV，同时报告 LATE 的顺应者解读。还要记住一条元原则：所有这些方法共享同一个生死线——已测协变量是否充分。方法再先进，也不能把"选择性处方"变成"随机化"。论文写作时，把 DML 结果与一个简单基准（如按关键变量分层的差值、或 IPW 估计）并列报告，往往比单独秀一个复杂估计更有说服力。</p>
+</div>
+<h2>14.4 结论</h2>
+<p>双重机器学习标志着我们从高维观察性医疗数据中得出有效因果推断能力的根本性进步。通过正交得分函数与交叉拟合谨慎分离预测与推断的角色，该方法驾驭了机器学习的灵活性，同时保住了假设检验与置信区间所需的统计严谨性。该框架实现的处理效应估计是稳健的——即便单个扰动参数模型被误设，只要它们的乘积以足够快的速度收敛，估计依然有效。</p>
+<p>我们的心血管疾病预防应用展示了该方法在处理真实世界因果问题上的实用价值：丰富的观察性数据让处理效应的研究成为可能，而传统参数方法在高维混杂面前力不从心。分析成功还原了真实处理效应——尽管混杂因子、处理与结局之间存在复杂的非线性关系，这些关系早已让常规回归方法不堪重负。</p>
+<p>双稳健性为模型误设提供了关键保险——把统计方法应用到纷乱的医疗数据时，模型误设不可避免地会发生。这种稳健性，加上"即便使用自适应程序也能有效推断"的渐近正态性保证，确立了 DML 作为现代因果推断必备工具的地位。当研究者掌握丰富的协变量信息、但对支配数据关系的函数形式了解有限时，该方法表现尤为出色。</p>
+<p>成功的实施需要相对于协变量维度足够的样本量、对识别假设（包括无混杂性与正值性）的仔细考量，以及通过敏感性分析评估对方法选择稳健性的验证。该框架是临床专业知识的补充而非替代——当与指导变量选择、识别潜在混杂因子、在医学语境中解读发现的领域知识结合时，它效果最佳。未来的研究持续把该框架扩展到更复杂的场景，包括时变处理、多结局以及对标准识别假设的违背。</p>
+
+  </div>
+  <div class="pager">
+    <a class="prev" href="ch13-dag.html">← 上一章：有向无环图：描绘医疗决策的因果架构</a>
+    <a class="next " href="../index.html">返回全书目录 →</a>
+  </div>
+  <div class="foot">本页为《Causal Inference in R》（Kamran Afzali，2026-01-17）的个人学习用途<strong>非官方中文译本</strong>，仅供学习交流，引用请以<a href="https://github.com/Kamran-Afzali/Bookdown_Causality">英文原文</a>为准。「背景与解释」框为译者补充，非原文内容。<br>原文：<a href="https://kamran-afzali.github.io/Bookdown_Causality/double-machine-learning.html">https://kamran-afzali.github.io/Bookdown_Causality/double-machine-learning.html</a> · 原书仓库：<a href="https://github.com/Kamran-Afzali/Bookdown_Causality">Kamran-Afzali/Bookdown_Causality</a> · 返回 <a href="../index.html">全书目录</a></div>
+</div>
+</body>
+</html>
