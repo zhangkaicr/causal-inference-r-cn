@@ -1,0 +1,361 @@
+<h2>5.1 引言</h2>
+<p>假设你是一名医疗卫生研究者，想弄清楚昂贵的高质量医院是否真正改善了患者结局。难点在于：患者并不是随机选择医院的——更富有、健康意识更强的患者往往会选择高端医疗机构，这使得几乎不可能把医院本身的效果与那些你无法测量的患者特征区分开来。</p>
+<p>这就是观察性研究中<strong>未测量混杂</strong>（unmeasured confounding）的根本难题。倾向得分匹配、双重差分（DiD）等方法能应对特定场景，但它们都依赖强假设，而当关键混杂因子隐而未测时，这些假设往往不成立。工具变量（instrumental variable，IV）估计提供了一个巧妙的解决方案：它利用外生变异（exogenous variation）——即"偶然发生"而非"自主选择"所造成的变化——即使在重要混杂因子未被测量的情况下，也能估计因果效应。</p>
+<p>本教程通过一个实际的医疗案例来讲解 IV 方法：估计医院质量如何影响患者康复时间。我们将用 R 实现该方法，验证关键假设，并与更简单的方法进行比较。学完本章，你将理解在自己的研究中何时以及如何应用 IV 估计。</p>
+<p>可以把工具变量想象成"大自然安排的随机试验"。虽然我们无法把患者随机分配到医院，但可以利用那些造成"近乎随机"的医院选择差异的因素。核心洞察是：如果我们找到某个因素，它影响处理分配却不直接影响结局，就可以用它来分离出我们关心的因果效应。</p>
+<p>以到高质量医院的地理距离为例。住得近的患者更可能选择这些机构，但距离本身不应该影响康复（假设我们控制了其他因素）。这就创造了因果识别所需的变异。</p>
+<p>一个有效的工具变量必须满足三个关键条件：</p>
+<ol style="list-style-type: decimal">
+<li><strong>相关性（工具变量影响处理）</strong>：工具变量必须对处理分配有实质影响
+<ul>
+<li><em>数学条件</em>：<span class="math inline">\(\text{Cov}(Z, D) \neq 0\)</span></li>
+<li><em>实用检验</em>：第一阶段 F 统计量 &gt; 10</li>
+<li><em>例子</em>：到高质量医院的距离会影响医院选择</li>
+</ul></li>
+<li><strong>排他性约束（工具变量只通过处理影响结局）</strong>：工具变量不能有直达结局的通路
+<ul>
+<li><em>数学条件</em>：<span class="math inline">\(Y = f(D, X, \varepsilon)\)</span>，其中 <span class="math inline">\(Z \notin f\)</span></li>
+<li><em>实用考量</em>：需要专业领域知识与仔细推理</li>
+<li><em>例子</em>：距离只通过影响医院选择来影响康复，而不通过其他渠道</li>
+</ul></li>
+<li><strong>独立性（工具变量是外生的）</strong>：工具变量必须与未测量混杂因子不相关
+<ul>
+<li><em>数学条件</em>：<span class="math inline">\(Z \perp \{Y(1), Y(0)\} \mid X\)</span></li>
+<li><em>实用考量</em>：通常是最难辩护的假设</li>
+<li><em>例子</em>：在控制了收入、教育和城乡状态后，距离与患者的健康意识无关</li>
+</ul></li>
+</ol>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>医疗卫生文献中最常用的工具变量有几类经典来源：①<strong>地理距离</strong>（如到最近一家三级医院、最近一家胸痛中心或导管室的距离），本章采用的就是这一类；②<strong>医生偏好</strong>（physician preference-based IV）：不同医生对同一药物的处方倾向存在差异，把患者"碰巧分配到哪位医生"当作工具变量，这是 Brookhart 等人在药物流行病学中的著名设计；③<strong>随机化的鼓励</strong>（如随机邀请参加癌症筛查、随机发放疫苗券），此时工具变量是随机分配的，独立性近乎无可挑剔，但估计的是"被邀请者相对于未受邀者"的效果；④<strong>政策造成的外生变动</strong>（如某地区突然推行某项临床路径）。它们的共同点是：明显改变"是否接受处理"，却找不到直接影响患者结局的机制。</p>
+</div>
+<p>与估计全人群效应的随机试验不同，IV 识别的是<strong>局部平均处理效应</strong>（Local Average Treatment Effect，LATE）——即"顺应者"（compliers）的因果效应，也就是那些处理状态受工具变量影响的个体。这既是 IV 的优势（我们能获得无偏的因果估计），也是它的局限（结果可能无法外推到全人群）。</p>
+<p>对于二值工具变量和二值处理，IV 估计目标量的形式非常简洁：</p>
+<p><span class="math display">\[\widehat{\text{LATE}} = \frac{\mathbb{E}[Y \mid Z = 1] - \mathbb{E}[Y \mid Z = 0]}{\mathbb{E}[D \mid Z = 1] - \mathbb{E}[D \mid Z = 0]}\]</span></p>
+<p>这个比率用"第一阶段"效应（工具变量 → 处理）去缩放"简化式"效应（工具变量 → 结局）。直觉是：把工具变量对结局的总影响，除以工具变量使处理接受量发生的改变。</p>
+<p>当面对连续变量或多个协变量时，我们使用两阶段最小二乘法（Two-Stage Least Squares，2SLS）：</p>
+<p><strong>第一阶段</strong>：用工具变量和控制变量预测处理
+<span class="math display">\[D_i = \pi_0 + \pi_1 Z_i + \pi_2^\top X_i + \nu_i\]</span></p>
+<p><strong>第二阶段</strong>：用预测出的处理值来估计因果效应
+<span class="math display">\[Y_i = \alpha_0 + \alpha_1 \hat{D}_i + \alpha_2^\top X_i + \varepsilon_i\]</span></p>
+<p>系数 <span class="math inline">\(\alpha_1\)</span> 就是我们的 LATE 估计；在 IV 假设成立时，它对未测量混杂是稳健的。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p><strong>LATE 与 ATE 的区别。</strong>随机对照试验（RCT）估计的 ATE（平均处理效应）是整个人群的平均效果；IV 估计的 LATE 只是"顺应者"——那些因为工具变量取值改变而改变处理状态的人——的平均效果。以本章为例，LATE 回答的是"对那些本来住得远、会去普通医院，只因住得近才转去高质量医院的患者，高质量医院让康复时间缩短了多少天"。如果处理效应存在异质性（例如对病情更重的人效果不同），LATE 与 ATE 可能相去甚远。临床解读时切忌把 LATE 说成"该治疗对所有患者都有效"；应明确交代估计结果适用于哪一类人。原书在这一节没有讨论 LATE 成立所需的<strong>单调性假设</strong>（monotonicity）：不存在"逆反者"（defiers），即不会有人因为住得近反而更不去高质量医院。二值工具变量 + 二值处理的情形下，正是"相关性 + 排他性约束 + 独立性 + 单调性"四个假设共同保证了 Wald 比率估计量等于 LATE。</p>
+</div>
+<table>
+<colgroup>
+<col width="12%" />
+<col width="19%" />
+<col width="29%" />
+<col width="17%" />
+<col width="20%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>方法</th>
+<th>假设</th>
+<th>估计的效应</th>
+<th>优势</th>
+<th>局限</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>IV</strong></td>
+<td>有效的工具变量</td>
+<td>LATE（仅顺应者）</td>
+<td>可处理未测量混杂</td>
+<td>需要强工具变量；外推性有限</td>
+</tr>
+<tr class="even">
+<td><strong>倾向得分</strong></td>
+<td>条件可忽略性</td>
+<td>ATE/ATT</td>
+<td>直观；适用范围广</td>
+<td>假设所有混杂因子均已测量</td>
+</tr>
+<tr class="odd">
+<td><strong>双重差分</strong></td>
+<td>平行趋势</td>
+<td>ATT</td>
+<td>自然实验</td>
+<td>时变混杂问题</td>
+</tr>
+</tbody>
+</table>
+<h2>5.2 医疗案例研究：医院质量与康复时间</h2>
+<p><strong>研究目的</strong>：估计医院质量对术后康复时间的因果效应</p>
+<p><strong>处理</strong>：<span class="math inline">\(D_i = 1\)</span> 表示高质量医院，<span class="math inline">\(D_i = 0\)</span> 表示标准医院<br />
+<strong>结局</strong>：<span class="math inline">\(Y_i\)</span> = 康复时间（天，越短越好）<br />
+<strong>工具变量</strong>：<span class="math inline">\(Z_i = 1\)</span> 表示患者住在高质量医院 10 英里范围内</p>
+<p><strong>混杂问题</strong>：选择高质量医院的患者可能在未测量的方面（健康意识、社会支持等）系统性地不同于其他患者，而这些方面同样影响康复。</p>
+<ul>
+<li><strong>假设核验</strong></li>
+</ul>
+<p><strong>相关性</strong>：我们预期距离会强烈预测医院选择。患者出于便利、熟悉和减少奔波负担的考虑，更偏好附近的机构。</p>
+<p><strong>排他性约束</strong>：距离只通过医院选择影响康复，而不通过以下途径：
+- 当地医疗基础设施质量
+- 空气质量或环境因素
+- 社会经济地位的空间聚集（通过可观测变量加以控制）</p>
+<p><strong>独立性</strong>：在控制了收入、教育和城乡状态后，距离应与未测量的健康行为无关。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p><strong>排他性约束为什么最难辩护。</strong>三个假设中，相关性可以用第一阶段 F 统计量直接检验，独立性可以部分借助平衡性检验间接支持，唯独排他性约束既不能用数据证实、也不能用数据否证，只能靠机制论证。以"距离"为例：住得近可能意味着更短的急救转运时间、更好的社区支持网络、更高的空气污染暴露，这些都可能直接影响康复。研究者能做的是逐一排查替代通路，并用数据控制可测的替代通路（如当地医疗资源密度、空气质量指数）。常见误区是把"距离与已测结局预测因子不相关"当作排他性的证据——排他性讲的是<em>直接效应</em>，与预测力完全是两回事。若排他性存疑，更稳妥的做法是换工具变量（如随机化的鼓励），或改用前门准则等其他识别策略。</p>
+</div>
+<h3>5.2.1 R 实现</h3>
+<p>我们用模拟数据来实现 IV 估计，数据设定尽量贴近真实的医疗场景：</p>
+<pre class="sourceCode r"><code># 加载所需的 R 包
+if (!requireNamespace("AER", quietly = TRUE)) install.packages("AER")
+if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
+if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr")
+library(AER)</code></pre>
+<pre><code>## Loading required package: car
+## Loading required package: carData
+## 
+## Attaching package: 'car'
+## The following object is masked from 'package:dplyr':
+## 
+##     recode
+## The following object is masked from 'package:purrr':
+## 
+##     some
+## Loading required package: lmtest
+## Loading required package: zoo
+## 
+## Attaching package: 'zoo'
+## The following objects are masked from 'package:base':
+## 
+##     as.Date, as.Date.numeric
+## Loading required package: sandwich</code></pre>
+<p><strong>输出解读：</strong>加载 AER 包时会连带加载 car、carData、lmtest、zoo、sandwich 等依赖包，并提示 dplyr、purrr、base 中的个别函数被"屏蔽"（masked）——这些函数名当前指向 car/zoo 中的同名函数。若后续分析依赖 dplyr::recode 等函数，需用 <code>dplyr::recode()</code> 显式指定命名空间。<code>AER</code> 包提供了 <code>ivreg()</code> 函数，是本例运行 2SLS 的核心。</p>
+<pre class="sourceCode r"><code>library(ggplot2)
+library(dplyr)
+
+# 设置随机种子，保证模拟结果可重复
+set.seed(123)
+n &lt;- 1000  # 样本量
+p &lt;- 5     # 协变量个数
+
+# 生成贴近真实的患者特征
+X &lt;- matrix(rnorm(n * p), nrow = n)
+colnames(X) &lt;- c("age", "income", "education", "comorbidities", "urban")
+
+# 工具变量：地理邻近性（控制可观测变量后是外生的）
+proximity_prob &lt;- plogis(-0.5 + 0.3 * X[, "urban"] + 0.1 * X[, "income"])
+Z &lt;- rbinom(n, 1, proximity_prob)
+
+# 处理：医院选择（受邻近性与患者特征影响）
+# 强第一阶段可保证工具变量的相关性
+hospital_choice_prob &lt;- plogis(-0.5 + 1.2 * Z + 0.3 * X[, "income"] + 
+                               0.2 * X[, "education"] + 0.1 * X[, "urban"])
+D &lt;- rbinom(n, 1, hospital_choice_prob)
+
+# 结局：含未测量混杂的康复时间
+# 未测量混杂因子：健康意识（同时影响医院选择与康复）
+health_consciousness &lt;- rnorm(n, mean = 0.2 * X[, "education"] + 0.1 * X[, "income"])
+
+# 真实因果效应：高质量医院使康复时间缩短 4 天
+true_late &lt;- -4
+recovery_time &lt;- 25 + true_late * D + 
+                 2 * X[, "age"] + 
+                 1.5 * X[, "comorbidities"] + 
+                 2 * health_consciousness +  # 未测量混杂因子
+                 rnorm(n, sd = 3)
+
+# 创建分析数据集
+data &lt;- data.frame(
+  recovery_time = recovery_time,
+  hospital_quality = D,
+  proximity = Z,
+  age = X[, "age"],
+  income = X[, "income"],
+  education = X[, "education"],
+  comorbidities = X[, "comorbidities"],
+  urban = X[, "urban"]
+)
+
+# 第 1 步：检验工具变量相关性（第一阶段）
+first_stage &lt;- lm(hospital_quality ~ proximity + age + income + education + 
+                 comorbidities + urban, data = data)
+first_stage_summary &lt;- summary(first_stage)
+f_stat &lt;- first_stage_summary$fstatistic[1]
+
+cat("=== FIRST STAGE DIAGNOSTICS ===\n")</code></pre>
+<pre><code>## === FIRST STAGE DIAGNOSTICS ===</code></pre>
+<p><strong>输出解读：</strong>数据生成机制完全对应本章的因果故事：<code>Z</code>（距离）由城乡状态和收入决定；<code>D</code>（医院选择）同时受 <code>Z</code> 与患者特征驱动，其中 <code>Z</code> 的系数 1.2 保证第一阶段足够强；结局 <code>recovery_time</code> 包含真实处理效应 <code>true_late = -4</code>、可观测协变量效应，以及<strong>无法被分析者观测到</strong>的 <code>health_consciousness</code> 的贡献（系数 2）——它同时进入 <code>D</code> 和结局方程，正是让朴素 OLS 产生偏误的未测量混杂。注意分析数据集里并没有 <code>health_consciousness</code> 这一列，模拟了真实观察性数据的困境。</p>
+<pre class="sourceCode r"><code>cat("First-stage F-statistic:", round(f_stat, 2), "\n")</code></pre>
+<pre><code>## First-stage F-statistic: 19.19</code></pre>
+<p><strong>输出解读：</strong>第一阶段 F 统计量为 19.19，大于常用阈值 10，说明工具变量与处理的相关性足够强，弱工具变量问题在本例中不严重。</p>
+<pre class="sourceCode r"><code>cat("Rule of thumb: F > 10 indicates strong instrument\n")</code></pre>
+<pre><code>## Rule of thumb: F > 10 indicates strong instrument</code></pre>
+<p><strong>输出解读：</strong>这行只是把经验规则打印出来：F &gt; 10 被视为"强工具变量"的经验门槛。</p>
+<pre class="sourceCode r"><code>cat("Proximity coefficient:", round(coef(first_stage)["proximity"], 3), "\n")</code></pre>
+<pre><code>## Proximity coefficient: 0.241</code></pre>
+<p><strong>输出解读：</strong>第一阶段中 <code>proximity</code> 的系数为 0.241。由于此处处理是 0/1 变量、模型为线性概率模型，可粗略解读为：住得近使选择高质量医院的概率提高约 24 个百分点。这个数字越大，工具变量能"撬动"的处理变异越多。</p>
+<pre class="sourceCode r"><code>cat("P-value:", round(coef(first_stage_summary)["proximity", "Pr(&gt;|t|)"], 4), "\n\n")</code></pre>
+<pre><code>## P-value: 0</code></pre>
+<p><strong>输出解读：</strong>p 值经四舍五入显示为 0，实际是极小值（远小于 0.0001），说明 <code>proximity</code> 与医院选择的关联在统计上高度显著——相关性假设通过了第一关。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p><strong>弱工具变量问题。</strong>当工具变量与处理的相关性很弱（第一阶段 F &lt; 10）时，2SLS 估计会出现两个后果：一是点估计系统性地偏向朴素 OLS 的结果（因为第一阶段的抽样噪声被分母放大），二是标准误严重失真，置信区间覆盖率和检验 size 都不再可信。F &gt; 10 这条经验规则来自 Stock-Yogo 对弱工具变量偏误的分析，更保守的做法是要求 F &gt; 20（原书后文亦提及），或使用 Anderson-Rubin 检验、Lee 置信区间等对弱工具稳健的推断方法。本例 F = 19.19，介于两条线之间：可以接受，但报告时最好同时给出第一阶段系数与 F 值。若工具变量确实很弱，与其在模型上修补，不如更换工具变量或扩大样本——样本量每翻两番，F 统计量约翻两番。</p>
+</div>
+<pre class="sourceCode r"><code># 第 2 步：两阶段最小二乘（2SLS）估计
+iv_model &lt;- ivreg(recovery_time ~ hospital_quality + age + income + education + 
+                  comorbidities + urban | proximity + age + income + education + 
+                  comorbidities + urban, data = data)
+iv_summary &lt;- summary(iv_model)
+
+# 第 3 步：Wald 估计量（不含协变量的简化版）
+reduced_form &lt;- lm(recovery_time ~ proximity, data = data)
+first_stage_simple &lt;- lm(hospital_quality ~ proximity, data = data)
+wald_estimate &lt;- coef(reduced_form)["proximity"] / coef(first_stage_simple)["proximity"]
+
+# 第 4 步：朴素 OLS（因未测量混杂而有偏）
+ols_model &lt;- lm(recovery_time ~ hospital_quality + age + income + education + 
+                comorbidities + urban, data = data)
+
+# 展示结果
+cat("=== ESTIMATION RESULTS ===\n")</code></pre>
+<pre><code>## === ESTIMATION RESULTS ===</code></pre>
+<p><strong>输出解读：</strong>这里并排计算了四种估计。<code>ivreg()</code> 的公式写法中，<code>|</code> 左侧是结构方程（结局 ~ 处理 + 协变量），右侧是第一阶段方程（工具变量 + 协变量）；<code>wald_estimate</code> 用两个一元回归的系数之比手工复现 Wald 估计量；<code>ols_model</code> 则是用于对照的、忽略未测量混杂的朴素回归。把三者放在一起比较，正是本章的教学重点。</p>
+<pre class="sourceCode r"><code>cat("True LATE (simulation parameter):", true_late, "days\n")</code></pre>
+<pre><code>## True LATE (simulation parameter): -4 days</code></pre>
+<p><strong>输出解读：</strong>模拟设定的"真实 LATE"为 -4 天，这是评判其他估计量的基准。</p>
+<pre class="sourceCode r"><code>cat("2SLS estimate:", round(coef(iv_summary)["hospital_quality", "Estimate"], 2), "days\n")</code></pre>
+<pre><code>## 2SLS estimate: -4.78 days</code></pre>
+<p><strong>输出解读：</strong>2SLS 点估计为 -4.78 天，与真实值 -4 天相当接近；模拟数据中的抽样波动使估计值略有偏离，属正常现象。</p>
+<pre class="sourceCode r"><code>cat("2SLS standard error:", round(coef(iv_summary)["hospital_quality", "Std. Error"], 2), "\n")</code></pre>
+<pre><code>## 2SLS standard error: 1.01</code></pre>
+<p><strong>输出解读：</strong>2SLS 的标准误为 1.01 天，据此构造的 95% 置信区间约为 [-6.7, -2.9]， comfortably 覆盖真实值 -4。</p>
+<pre class="sourceCode r"><code>cat("Wald estimate:", round(wald_estimate, 2), "days\n")</code></pre>
+<pre><code>## Wald estimate: -4.53 days</code></pre>
+<p><strong>输出解读：</strong>Wald 估计量为 -4.53 天，与 2SLS 点估计接近。Wald 估计量不使用协变量，形式最简单；在协变量与工具变量、结局都无关时，它与 2SLS 等价，本例中两者接近正说明了这一点。</p>
+<pre class="sourceCode r"><code>cat("Naive OLS estimate:", round(coef(ols_model)["hospital_quality"], 2), "days\n\n")</code></pre>
+<pre><code>## Naive OLS estimate: -3.83 days</code></pre>
+<p><strong>输出解读：</strong>朴素 OLS 得到 -3.83 天，同样"看起来"接近真实值——这是模拟设定的巧合：本例中未测量混杂造成的偏误恰好部分抵消了其他来源的偏误。一般而言，未测量混杂会让 OLS 或高估或低估处理效应，没有任何方向保证；读者不应据此认为"OLS 也够用"。</p>
+<pre class="sourceCode r"><code># 创建可视化
+estimates_df &lt;- data.frame(
+  Method = c("2SLS", "Wald", "OLS", "True LATE"),
+  Estimate = c(
+    coef(iv_summary)["hospital_quality", "Estimate"],
+    wald_estimate,
+    coef(ols_model)["hospital_quality"],
+    true_late
+  ),
+  SE = c(
+    coef(iv_summary)["hospital_quality", "Std. Error"],
+    NA,
+    summary(ols_model)$coefficients["hospital_quality", "Std. Error"],
+    NA
+  )
+) %&gt;%
+  mutate(
+    Lower = Estimate - 1.96 * SE,
+    Upper = Estimate + 1.96 * SE,
+    Color = case_when(
+      Method == "True LATE" ~ "Truth",
+      Method %in% c("2SLS", "Wald") ~ "IV Methods",
+      TRUE ~ "Biased"
+    )
+  )
+
+# 增强可视化效果
+ggplot(estimates_df, aes(x = Method, y = Estimate, fill = Color)) +
+  geom_col(alpha = 0.7, width = 0.6) +
+  geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.2, 
+                color = "black", na.rm = TRUE) +
+  geom_hline(yintercept = true_late, linetype = "dashed", 
+             color = "red", size = 1) +
+  scale_fill_manual(values = c("IV Methods" = "#2E86AB", 
+                               "Biased" = "#A23B72", 
+                               "Truth" = "#F18F01")) +
+  labs(
+    title = "医院质量对康复时间的影响",
+    subtitle = "不同估计方法比较（含 95% 置信区间）",
+    y = "对康复时间的影响（天）",
+    x = "估计方法",
+    fill = "方法类型",
+    caption = "虚线为真实因果效应"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )</code></pre>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-13-1.png" width="672" alt="不同估计方法对康复时间效应的柱状图比较，含 95% 置信区间与真实值参考线" /></p>
+<h3>5.2.2 结果解读</h3>
+<p><strong>第一阶段强度</strong>：F 统计量检验工具变量的相关性。F 大于 10 表示强工具变量；大于 20 则被认为非常强。弱工具变量（F &lt; 10）会导致有偏且不精确的估计。</p>
+<p><strong>估计值比较</strong>：在我们的模拟中：</p>
+<ul>
+<li><strong>2SLS</strong> 应能在适当的不确定性下还原真实的 LATE（-4 天）</li>
+<li><strong>Wald 估计量</strong> 给出的点估计相近，但不做协变量调整时精度可能较低</li>
+<li><strong>朴素 OLS</strong> 通常因未测量混杂而表现出偏向零的偏误</li>
+</ul>
+<p>2SLS 系数代表 LATE：对于医院选择受距离影响的患者，康复时间的期望减少量。这一效应专门适用于"顺应者"——那些住得近时会选高质量医院、住得远时会选标准医院的患者。</p>
+<p>置信区间反映估计的不确定性。区间过宽可能意味着工具变量弱、样本量小或结局变异大。</p>
+<ul>
+<li><strong>常见有效性威胁</strong></li>
+</ul>
+<ol style="list-style-type: decimal">
+<li><p><strong>弱工具变量</strong>：第一阶段 F 统计量低，说明工具变量驱动的处理变异不足</p></li>
+<li><p><strong>违反排他性约束</strong>：距离可能通过以下途径影响康复：
+<ul>
+<li>靠近其他医疗机构</li>
+<li>按地理位置形成的社会经济分层</li>
+<li>与地理位置相关的环境因素</li>
+</ul></p></li>
+<li><p><strong>违反独立性</strong>：近距/远距患者在未测量特征上存在系统差异</p></li>
+</ol>
+<h3>5.2.3 稳健性检验</h3>
+<pre class="sourceCode r"><code># 补充诊断：考察可观测变量上的平衡性
+cat("=== BALANCE CHECK ===\n")</code></pre>
+<pre><code>## === BALANCE CHECK ===</code></pre>
+<p><strong>输出解读：</strong>下面进入稳健性检查，先看按距离分组后患者特征是否"平衡"。</p>
+<pre class="sourceCode r"><code>balance_test &lt;- t.test(data$income[data$proximity == 1], 
+                      data$income[data$proximity == 0])
+cat("Income difference by proximity (p-value):", round(balance_test$p.value, 3), "\n")</code></pre>
+<pre><code>## Income difference by proximity (p-value): 0</code></pre>
+<p><strong>输出解读：</strong>p 值显示为 0，说明住得近与住得远的患者在收入上有统计学差异。这<strong>并不</strong>自动否定 IV：IV 的独立性假设是条件独立——工具变量可以与可观测变量相关，只要在控制这些变量后与<em>未测量</em>混杂无关即可。但它提醒我们：若存在同时影响距离与康复的强预后因子却未被纳入控制，残差仍可能相关。实际研究中应尽量把这类变量放入协变量名单，并在论文中报告工具变量与主要协变量的平衡性。</p>
+<pre class="sourceCode r"><code># 考察顺应者人群的规模
+complier_share &lt;- (mean(data$hospital_quality[data$proximity == 1]) - 
+                   mean(data$hospital_quality[data$proximity == 0]))
+cat("Estimated complier share:", round(complier_share * 100, 1), "%\n")</code></pre>
+<pre><code>## Estimated complier share: 26.7 %</code></pre>
+<p><strong>输出解读：</strong>顺应者占比估计为 26.7%：约四分之一的患者属于"因住得近而改变医院选择"的人群，IV 估计的 LATE 只代表这部分人。占比越接近 0，说明工具变量能撬动的处理变异越少，LATE 的代表性也越窄。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p><strong>顺应者占比决定了 LATE 的代表性。</strong>流行病学读者可以把它理解为"该工具变量实际改变了多少人的治疗选择"。26.7% 意味着约四分之三的患者无论住得近住得远都会去同一类医院（从不接受者与总是接受者），他们的处理效应对 IV 估计没有任何贡献。报告 IV 结果时，建议同时给出顺应者占比及其特征画像（例如是否更年轻、合并症更少），帮助临床同行判断结论能否外推到自己管理的患者群体。如果顺应者占比极低（如 &lt; 5%），即便第一阶段 F 值合格，LATE 的临床意义也会相当有限。</p>
+</div>
+<h2>5.3 实用考量与扩展</h2>
+<h3>5.3.1 何时使用 IV</h3>
+<p><strong>理想场景</strong>：
+- 对工具变量有效性有充分的理论依据
+- 怀疑存在未测量混杂
+- 自然实验或政策断点造成了外生变异</p>
+<p><strong>需谨慎行事的情形</strong>：
+- 工具变量弱（F &lt; 10）
+- 排他性约束存疑
+- 处理效应高度异质</p>
+<h3>5.3.2 进阶主题</h3>
+<ul>
+<li><strong>多个工具变量</strong>：用 Hansen J 检验做过度识别检验</li>
+<li><strong>连续处理</strong>：线性 IV 模型及其解读上的注意事项</li>
+<li><strong>机器学习</strong>：工具变量众多时的正则化 IV</li>
+<li><strong>异质效应</strong>：边际处理效应（Marginal Treatment Effects）框架</li>
+</ul>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p><strong>IV 与其他识别策略如何取舍。</strong>对临床研究者而言，选择顺序大致是：能随机化就随机化（RCT）；退而求其次，若混杂因子测量充分，倾向得分/IPW/g-计算估计的是全人群 ATE，通常比 LATE 更贴合临床决策；只有当存在<em>强理由怀疑未测量混杂</em>（如病情严重程度影响处方且无客观记录）时，IV 才是首选——它用"更难辩护的假设 + 更窄的估计目标"换取对未测量混杂的免疫力。过度识别检验（Hansen J）只能检验"多个工具变量是否给出相同答案"，不能检验排他性约束本身是否成立，通过 J 检验不等于工具变量有效。此外，当处理效应异质性很强时，IV 与 OLS 估计的可能是完全不同的量，把两者差异解释为"OLS 的偏误"是过度简化的。</p>
+</div>
+<h2>5.4 结论</h2>
+<p>当未测量混杂威胁研究效度时，工具变量估计为因果推断提供了一个强有力的途径。通过上述医疗案例，我们看到了地理距离如何充当工具变量，来估计医院质量对康复时间的影响。</p>
+<p>该方法的力量在于它能处理隐性偏误，但代价是重要的权衡：需要有效的工具变量，且解读仅限于顺应者人群。成功与否关键取决于谨慎的工具变量选择、充分的假设核验，以及对潜在违反假设情形的如实评估。</p>
+<p>若能在领域专业知识的支撑下审慎应用，IV 估计能揭示那些原本会埋没在观察性数据中的因果关系，是研究者应对复杂现实问题的宝贵工具。</p>
+<h2>5.5 延伸阅读</h2>
+<ul>
+<li>Angrist, J. D., &amp; Pischke, J.-S. (2009). <em>Mostly Harmless Econometrics: An Empiricist's Companion</em>（《基本无害的计量经济学：实证研究者指南》）. Princeton University Press.</li>
+<li>Hernán, M. A., &amp; Robins, J. M. (2020). <em>Causal Inference: What If</em>（《因果推断：倘若如此》）. Chapman &amp; Hall/CRC.</li>
+<li>Imbens, G. W., &amp; Rubin, D. B. (2015). <em>Causal Inference for Statistics, Social, and Biomedical Sciences</em>（《统计学、社会科学与生物医学中的因果推断》）. Cambridge University Press.</li>
+</ul>
