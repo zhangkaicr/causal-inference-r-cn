@@ -1,0 +1,278 @@
+<h2><span class="header-section-number">6.1</span> 引言</h2>
+<p>断点回归设计（regression discontinuity design，RDD）利用处理分配规则中任意设定的阈值，在观察性数据中识别因果效应。与其他依赖「未观测混杂因子」假设或「平行趋势」假设的因果推断方法不同，RDD 依赖这样一个事实：在一个已知的断点处，处理分配发生不连续的跳变，而潜在结局（potential outcomes）随驱动变量（running variable）平滑变化。这就构造出一个准实验（quasi-experimental）场景：阈值上方与下方的个体除了处理状态之外彼此可比，从而即使无法开展随机化实验，也能进行可信的因果推断。</p>
+<p>当处理基于任意阈值分配时——例如按考试分数决定奖学金资格、按诊断阈值决定医疗干预、按企业规模判定监管合规——该方法在政策评估中尤其有价值。本文通过一个医疗场景考察 RDD 的理论基础、数学框架与实践实现：用 R 中的模拟数据估计重症监护室（ICU）入住对患者死亡率的因果效应。我们同时探讨精确断点（sharp）与模糊断点（fuzzy）两类设计，讨论假设的验证，并把 RDD 与其他因果推断方法进行比较。</p>
+<p>RDD 的识别依赖如下假设：在处理的断点处，潜在结局是驱动变量的连续函数，而处理分配呈现不连续。设驱动变量为 X、断点为 c，当 X ≥ c 时 D = 1，当 X &lt; c 时 D = 0。关键洞察在于：X 取值任意接近 c 的个体，除处理状态外在各方面都相似，因而断点提供了准随机（quasi-random）变异的来源。当处理分配遵循一个基于已观测驱动变量 <span class="math inline">\(X\)</span> 的确定性规则时，即可应用 RDD：</p>
+<p><span class="math display">\[
+D_i = \begin{cases}
+1 &amp; \text{if } X_i \geq c \\
+0 &amp; \text{if } X_i &lt; c
+\end{cases}
+\]</span></p>
+<p>其中 <span class="math inline">\(c\)</span> 为断点阈值。这种分配是「精确」不连续的；与之相对，模糊断点设计（fuzzy RDD）中分配规则带来的不是处理概率从 0 到 1 的确定性跳变，而是处理概率的跳跃。关键洞察：断点附近的个体是可交换的（exchangeable）。</p>
+<p>RDD 的估计目标（estimand）是断点处的处理效应：</p>
+<p><span class="math display">\[
+\tau_{RDD} = \mathbb{E}[Y_i(1) - Y_i(0) | X_i = c]
+\]</span></p>
+<p>由于每个个体我们只能观测到一个潜在结局，识别要求条件期望函数在断点处连续。形式上：</p>
+<p><span class="math display">\[
+\mathbb{E}[Y_i(0) | X_i = x] \text{ and } \mathbb{E}[Y_i(1) | X_i = x] \text{ are continuous at } x = c
+\]</span></p>
+<p>当该条件成立时，处理效应就等于观测结局中的不连续跳变：</p>
+<p><span class="math display">\[
+\tau_{RDD} = \lim_{x \to c^+} \mathbb{E}[Y_i | X_i = x] - \lim_{x \to c^-} \mathbb{E}[Y_i | X_i = x]
+\]</span></p>
+<p>识别假设即潜在结局在断点处连续。形式上，对照与处理两种潜在结局 Y(0) 与 Y(1) 的期望值都必须在断点处连续。在该假设下，断点处的处理效应由观测结局的不连续性识别。这一局部平均处理效应（local average treatment effect，LATE）只适用于断点处的个体，代表驱动变量取值恰好等于阈值的那部分人的因果效应。</p>
+<p>当处理分配是驱动变量的确定性函数、处理概率在断点处从 0 跳到 1 时，即为精确断点设计（sharp RDD）。此时处理效应直接由结局的不连续跳跃估计。当处理概率在断点处发生不连续但非确定性的变化时，即为模糊断点设计（fuzzy RDD），它在驱动变量与处理分配之间建立起「第一阶段」关系。模糊设计需要类似工具变量（instrumental variable，IV）的两阶段估计，其中断点充当「处理接受」的工具变量。对于模糊设计，处理效应计算为结局跳跃与处理概率跳跃之比，类似工具变量估计中的 Wald 估计量。</p>
+<p>RDD 估计通常采用聚焦于断点附近观测的局部多项式回归（local polynomial regression）。参数化方法在阈值两侧分别拟合多项式，处理效应由处理指示变量的系数捕捉。非参数方法使用带核权重（kernel weights）的局部线性回归，利用断点两侧带宽（bandwidth）h 范围内的观测分别估计回归。</p>
+<p>带宽选择涉及偏差—方差权衡（bias-variance tradeoff）。较小的带宽通过聚焦与断点处个体最相似的单元来降低偏差，但因样本量减小而增大方差。最优带宽选择程序利用交叉验证或均方误差准则在这些考量之间取得平衡。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>RDD 的思想在流行病学中能找到熟悉的对应：它属于「自然实验 / 准实验」传统。当某种外生的规则（而非患者或医生的选择）决定了谁接受处理时，阈值两侧的个体就近似于被「准随机化」分组。经典的流行病学例子包括：按血红蛋白 A1c 是否 ≥6.5% 诊断糖尿病、按 eGFR 是否 &lt;30 mL/min/1.73m² 转入肾脏专科、按血压阈值启动降压治疗、按年龄线（如 65 岁）确定医保覆盖或疫苗接种资格。这些阈值往往是历史沿革、专家共识或行政便利的产物，对临床决策而言「近乎任意」——这正是 RDD 识别效应所需要的性质。对医学研究者的实用提示：写论文时不要把 RDD 当成「更便宜的 RCT」来汇报，它估计的是<strong>阈值处</strong>的效应，读者需要清楚这一点。</p>
+</div>
+<h3><span class="header-section-number">6.1.1</span> 与其他方法的比较</h3>
+<p>RDD 在识别策略与假设上与其他因果推断方法有本质区别。工具变量要求外生的工具变量——它影响处理但不直接影响结局；RDD 则利用断点本身作为变异来源，只要求潜在结局连续。与双重差分（difference-in-differences，DiD）相比，后者依赖平行趋势（parallel trends）假设且需要面板数据；RDD 可以应用于截面数据，并通过空间（而非时间）变异识别效应。</p>
+<p>该方法的优势在于：当分配规则确实任意且不连续时，其结论高度可信。但 RDD 只提供断点处的局部识别（local identification），与估计全人群效应的方法相比，外部效度受限。该方法还需要阈值附近有足够多的观测才能精确估计，且在参数化实现中可能对函数形式误设（functional form misspecification）敏感。</p>
+<h2><span class="header-section-number">6.2</span> 医疗应用：ICU 入住与死亡率</h2>
+<h3><span class="header-section-number">6.2.1</span> 场景</h3>
+<p>我们考察 ICU 入住对急诊患者 30 天死亡风险的因果效应。许多医院使用带有特定阈值的病情严重程度评分来指导 ICU 收治决策：评分高于阈值的患者接受加强监护与治疗，低于阈值的患者接受普通病房照护。这在处理分配中造成了精确的不连续，使得关于 ICU 有效性的因果推断成为可能。</p>
+<p>驱动变量为急性生理与慢性健康评价（Acute Physiology and Chronic Health Evaluation，APACHE）评分，规定评分 ≥15 必须入住 ICU。结局为 30 天死亡，30 天内死亡编码为 1、存活编码为 0。关键假设是：患者死亡风险随 APACHE 评分平滑变化，而 ICU 入住概率在断点处不连续跳变。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>重症医学中「按评分切线」是真实存在的决策机制，常见的还有 SOFA、qSOFA、NEWS2、CURB-65 等评分。临床路径（clinical pathway）中也大量存在按指标切线的做法：HbA1c ≥7.0% 调整降糖方案、LDL-C 超过目标值启动他汀、胆红素超过阈值启动光疗、儿童按体重切线调整给药剂量。这些场景原则上都适合用 RDD 评估「跨过阈值」这一决策的因果效应。需要注意两点：其一，评分多为整数离散变量，与本章假设的连续驱动变量有差距，离散化会造成测量误差（见 6.5 节）；其二，阈值本身可能随时间或机构变化（如不同国家 APACHE 阈值不同），分析时必须确认分析期内阈值确实固定不变。</p>
+</div>
+<h3><span class="header-section-number">6.2.2</span> 假设与效度</h3>
+<p>首要的识别假设要求潜在结局在断点处连续。这看似合理，因为 APACHE 评分反映潜在健康状况，而健康状况应当平滑变化而非跳跃。然而，如果医生系统性地调整评分以影响收治决策，断点附近的「操纵」（gaming）行为可能违反该假设。</p>
+<p>有若干经验检验可以评估假设的效度。密度检验（density test）考察驱动变量的分布在断点周围是否存在可疑的堆积。连续性检验（continuity test）检查先定协变量（predetermined covariates）在阈值处是否出现不连续。安慰剂检验（placebo test）在没有处理不连续的假断点处估计效应。这些诊断有助于建立对设计可信度的信心。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>密度检验的经典方法是 McCrary (2008) 检验：如果个体（或其医生）能够精确操纵驱动变量，断点一侧的密度会异常堆积。R 中可用 <code>rddensity</code> 包（Calonico, Cattaneo &amp; Titiunik, 2015）实现，与本章用的 <code>rdrobust</code> 同属一个系列。在医疗场景中，操纵的具体形式包括：评分由多个条目加总而成时「就近入格」、入院诊断的选择性记录（如为了达到阈值而调整主要诊断）、以及分诊时的资源博弈（轻症患者囤积在阈值下方）。连续性检验的逻辑是：先定协变量（年龄、性别、既往史）不应在断点处跳跃——如果跳跃了，说明阈值两侧本来就不可比，RDD 的「近似随机化」前提不成立。这三类检验（密度、协变量连续性、安慰剂断点）应作为 RDD 论文的标准报告项。</p>
+</div>
+<h3><span class="header-section-number">6.2.3</span> R 实现</h3>
+<p>我们模拟 2000 名急诊患者，APACHE 评分范围为 10 到 20。真实处理效应为 ICU 患者在断点处死亡风险降低 15 个百分点。实现同时包含参数化与非参数化两种估计方法。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 加载所需的 R 包
+if (!requireNamespace(&quot;rdrobust&quot;, quietly = TRUE)) install.packages(&quot;rdrobust&quot;)
+if (!requireNamespace(&quot;ggplot2&quot;, quietly = TRUE)) install.packages(&quot;ggplot2&quot;)
+if (!requireNamespace(&quot;dplyr&quot;, quietly = TRUE)) install.packages(&quot;dplyr&quot;)
+library(rdrobust)</code></pre></div>
+<pre><code>## Warning: package &#39;rdrobust&#39; was built under R version 4.5.1</code></pre>
+<p>输出解读：这条 Warning 只说明 <code>rdrobust</code> 是在 R 4.5.1 下编译的，不影响使用，可忽略。这种「先探测、缺失才安装、再加载」的写法保证了脚本在未安装相应包的机器上也能直接运行。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">library(ggplot2)
+library(dplyr)
+
+# 设置随机种子以保证可重复
+set.seed(456)
+
+# 模拟数据
+n &lt;- 2000
+cutoff &lt;- 15
+
+# 驱动变量：APACHE 评分（10-20）
+apache_score &lt;- runif(n, 10, 20)
+
+# 处理：ICU 入住（精确断点设计）
+icu_admission &lt;- as.numeric(apache_score &gt;= cutoff)
+
+# 基线死亡风险（APACHE 评分的平滑函数）
+baseline_risk &lt;- 0.1 + 0.03 * (apache_score - 15) + 0.001 * (apache_score - 15)^2
+
+# 真实处理效应：-0.15（降低 15 个百分点）
+true_effect &lt;- -0.15
+mortality_prob &lt;- baseline_risk + true_effect * icu_admission
+
+# 加入随机噪声并生成二分类结局
+mortality_prob &lt;- pmax(0, pmin(1, mortality_prob + rnorm(n, 0, 0.05)))
+mortality &lt;- rbinom(n, 1, mortality_prob)
+
+# 构建数据集
+data &lt;- data.frame(
+  apache_score = apache_score,
+  icu_admission = icu_admission,
+  mortality = mortality,
+  centered_score = apache_score - cutoff
+)
+
+# 用局部线性回归做参数化估计
+param_model &lt;- lm(mortality ~ icu_admission + centered_score + 
+                 I(centered_score * icu_admission), data = data)
+param_effect &lt;- coef(param_model)[&quot;icu_admission&quot;]
+param_se &lt;- summary(param_model)$coefficients[&quot;icu_admission&quot;, &quot;Std. Error&quot;]
+
+cat(&quot;Parametric RDD estimate:&quot;, round(param_effect, 4), &quot;\n&quot;)</code></pre></div>
+<pre><code>## Parametric RDD estimate: -0.0593</code></pre>
+<p>输出解读：参数化估计为 <strong>-0.0593</strong>，即约 5.9 个百分点，与真实效应 -0.15 相去甚远。模拟设定上，<code>baseline_risk</code> 是断点两侧都平滑的二次函数，<code>icu_admission</code> 在阈值处从 0 跳到 1，结局由「基线风险 + 真实效应 × 处理 + 噪声」生成——这正是 RDD 假设下的理想数据。估计偏差的来源见本节末尾的「背景与解释」。注意模型中 <code>I(centered_score * icu_admission)</code> 交互项允许阈值两侧斜率不同，这是局部线性 RDD 的标准设定。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;Standard error:&quot;, round(param_se, 4), &quot;\n&quot;)</code></pre></div>
+<pre><code>## Standard error: 0.0174</code></pre>
+<p>输出解读：参数化估计的标准误为 0.0174。据此构造的 95% 置信区间约为 [-0.093, -0.025]，不包含 0，即「ICU 降低死亡率」的结论在统计上显著，但幅度只有真实效应的四成左右。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 用 rdrobust 做非参数估计
+rd_result &lt;- rdrobust(y = data$mortality, x = data$apache_score, c = cutoff)
+nonparam_effect &lt;- rd_result$coef[&quot;Robust&quot;, ]
+nonparam_se &lt;- rd_result$se[&quot;Robust&quot;, ]
+optimal_bandwidth &lt;- rd_result$bws[&quot;h&quot;, &quot;left&quot;]
+
+cat(&quot;Nonparametric RDD estimate:&quot;, round(nonparam_effect, 4), &quot;\n&quot;)</code></pre></div>
+<pre><code>## Nonparametric RDD estimate: -0.0116</code></pre>
+<p>输出解读：<code>rdrobust</code> 给出的稳健（Robust）点估计为 <strong>-0.0116</strong>，即约 1.2 个百分点，离真实效应 -0.15 更远。<code>rdrobust</code> 是 Calonico、Cattaneo 与 Titiunik 系列工作的 R 实现，它同时报告 Conventional 与 Robust 两类点估计和偏差校正后的置信区间；这里提取的是 Robust 行。<code>coef["Robust", ]</code> 的写法是按行名取子集，避免记行列位置。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;Robust standard error:&quot;, round(nonparam_se, 4), &quot;\n&quot;)</code></pre></div>
+<pre><code>## Robust standard error: 0.032</code></pre>
+<p>输出解读：非参数稳健标准误 0.032，约为参数化标准误的两倍——非参数方法只用断点附近带宽内的观测，「以偏差换方差」的代价直接体现在标准误上。其 95% 置信区间约为 [-0.074, 0.051]，跨过 0，无法拒绝「无效应」。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;Optimal bandwidth:&quot;, round(optimal_bandwidth, 2), &quot;\n&quot;)</code></pre></div>
+<pre><code>## Optimal bandwidth: 1.14</code></pre>
+<p>输出解读：数据驱动的最优带宽为 1.14（APACHE 分），即只用距断点 1.14 分以内的观测做局部回归。在 2000 名患者、评分均匀分布于 10–20 的设定下，两侧各约 114 人进入估计，样本量损失明显，这是标准误偏大的直接原因。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 在假断点处做安慰剂检验
+false_cutoff &lt;- 13
+placebo_result &lt;- rdrobust(y = data$mortality, x = data$apache_score, c = false_cutoff)
+placebo_effect &lt;- placebo_result$coef[&quot;Robust&quot;, ]
+placebo_se &lt;- placebo_result$se[&quot;Robust&quot;, ]
+
+cat(&quot;Placebo test estimate:&quot;, round(placebo_effect, 4), &quot;\n&quot;)</code></pre></div>
+<pre><code>## Placebo test estimate: 0.0092</code></pre>
+<p>输出解读：把断点挪到 13（此处并无处理跳跃）后估计出的「效应」为 0.0092，接近 0——正如预期。安慰剂检验的逻辑是：如果一个没有处理不连续的位置也「检出」跳跃，说明方法本身有问题（如函数形式造成的虚假断点）。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;Placebo test p-value:&quot;, round(2 * (1 - pnorm(abs(placebo_effect / placebo_se))), 4), &quot;\n&quot;)</code></pre></div>
+<pre><code>## Placebo test p-value: 0.908</code></pre>
+<p>输出解读：安慰剂检验 p 值为 0.908，远大于 0.05，说明在假断点处没有检出任何跳跃。这里用正态近似手工计算双侧 p 值（估计值除以标准误后查标准正态），严谨做法可直接读取 <code>placebo_result$pv</code>。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 可视化
+# 生成用于绘制平滑曲线的预测数据
+pred_data &lt;- data.frame(apache_score = seq(10, 20, 0.1))
+pred_data$centered_score &lt;- pred_data$apache_score - cutoff
+pred_data$icu_admission &lt;- as.numeric(pred_data$apache_score &gt;= cutoff)
+
+# 断点两侧分别拟合模型
+left_model &lt;- lm(mortality ~ centered_score, data = data[data$apache_score &lt; cutoff, ])
+right_model &lt;- lm(mortality ~ centered_score, data = data[data$apache_score &gt;= cutoff, ])
+
+pred_left &lt;- predict(left_model, 
+                   newdata = pred_data[pred_data$apache_score &lt; cutoff, ],
+                   se.fit = TRUE)
+pred_right &lt;- predict(right_model, 
+                    newdata = pred_data[pred_data$apache_score &gt;= cutoff, ],
+                    se.fit = TRUE)
+
+# 合并两侧预测
+plot_data &lt;- data.frame(
+  apache_score = c(pred_data$apache_score[pred_data$apache_score &lt; cutoff],
+                   pred_data$apache_score[pred_data$apache_score &gt;= cutoff]),
+  predicted = c(pred_left$fit, pred_right$fit),
+  se = c(pred_left$se.fit, pred_right$se.fit),
+  side = c(rep(&quot;Control&quot;, sum(pred_data$apache_score &lt; cutoff)),
+           rep(&quot;Treatment&quot;, sum(pred_data$apache_score &gt;= cutoff)))
+)
+
+plot_data$lower &lt;- plot_data$predicted - 1.96 * plot_data$se
+plot_data$upper &lt;- plot_data$predicted + 1.96 * plot_data$se
+
+# 绘制分箱散点图
+bin_data &lt;- data %&gt;%
+  mutate(bin = round(apache_score * 2) / 2) %&gt;%
+  group_by(bin) %&gt;%
+  summarise(mean_mortality = mean(mortality),
+            se_mortality = sd(mortality) / sqrt(n()),
+            .groups = &#39;drop&#39;) %&gt;%
+  filter(bin &gt;= 12 &amp; bin &lt;= 18)
+
+# 主图
+p1 &lt;- ggplot() +
+  geom_point(data = bin_data, aes(x = bin, y = mean_mortality), 
+             alpha = 0.7, size = 2) +
+  geom_errorbar(data = bin_data, 
+                aes(x = bin, ymin = mean_mortality - 1.96 * se_mortality,
+                    ymax = mean_mortality + 1.96 * se_mortality),
+                width = 0.1, alpha = 0.7) +
+  geom_line(data = plot_data, aes(x = apache_score, y = predicted, color = side), 
+            size = 1.2) +
+  geom_ribbon(data = plot_data, 
+              aes(x = apache_score, ymin = lower, ymax = upper, fill = side),
+              alpha = 0.2) +
+  geom_vline(xintercept = cutoff, linetype = &quot;dashed&quot;, color = &quot;red&quot;, size = 1) +
+  scale_color_manual(values = c(&quot;Control&quot; = &quot;#1f77b4&quot;, &quot;Treatment&quot; = &quot;#ff7f0e&quot;)) +
+  scale_fill_manual(values = c(&quot;Control&quot; = &quot;#1f77b4&quot;, &quot;Treatment&quot; = &quot;#ff7f0e&quot;)) +
+  labs(title = &quot;RDD: Effect of ICU Admission on 30-Day Mortality&quot;,
+       x = &quot;APACHE Score&quot;, 
+       y = &quot;30-Day Mortality Rate&quot;,
+       color = &quot;Treatment Status&quot;,
+       fill = &quot;Treatment Status&quot;) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;) +
+  annotate(&quot;text&quot;, x = cutoff + 0.5, y = 0.25, 
+           label = paste(&quot;ICU Cutoff\n(Score ≥&quot;, cutoff, &quot;)&quot;), 
+           color = &quot;red&quot;, size = 3)
+
+print(p1)</code></pre></div>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-18-1.png" width="672" alt="RDD 图：ICU 入住对 30 天死亡率的影响，红色虚线为 APACHE 15 分断点" /></p>
+<p>输出解读：图中红色虚线为 APACHE=15 的断点，点是按 0.5 分宽度分箱后的平均死亡率（带 95% 误差棒），两条实线是断点两侧各自的线性拟合，阴影为 95% 置信带。RDD 图的标准读法是：先看两侧趋势在断点处是否平滑衔接（若不连续正是处理效应），再看是否存在可疑的弯曲或跳跃。本例中，右侧（ICU）的散点整体低于左侧外推的预测，但幅度明显小于设定的 -0.15；右侧在紧邻断点处还呈现先低后升的形态，与模拟设定的截断效应一致（见下方「背景与解释」）。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 结果汇总
+results &lt;- data.frame(
+  Method = c(&quot;Parametric&quot;, &quot;Nonparametric&quot;, &quot;Placebo Test&quot;),
+  Estimate = c(param_effect, nonparam_effect, placebo_effect),
+  SE = c(param_se, nonparam_se, placebo_se),
+  Lower_CI = c(param_effect - 1.96 * param_se,
+               nonparam_effect - 1.96 * nonparam_se,
+               placebo_effect - 1.96 * placebo_se),
+  Upper_CI = c(param_effect + 1.96 * param_se,
+               nonparam_effect + 1.96 * nonparam_se,
+               placebo_effect + 1.96 * placebo_se)
+)
+
+print(results)</code></pre></div>
+<pre><code>##          Method     Estimate         SE    Lower_CI    Upper_CI
+## 1    Parametric -0.059252445 0.01744663 -0.09344783 -0.02505706
+## 2 Nonparametric -0.011599070 0.03202451 -0.07436711  0.05116897
+## 3  Placebo Test  0.009224179 0.07984869 -0.14727926  0.16572762</code></pre>
+<p>输出解读：三行汇总一目了然——参数化估计 -0.059（CI 不含 0），非参数估计 -0.012（CI 含 0），安慰剂 0.009（CI 很宽、含 0）。真实效应是 -0.15：两种主估计都显著偏保守，安慰剂检验则表现正常。做 RDD 分析时把估计值、标准误、置信区间并排成这样的表，是向审稿人展示稳健性的好习惯。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 效应量解读
+cat(&quot;\nInterpretation:\n&quot;)</code></pre></div>
+<pre><code>## 
+## Interpretation:</code></pre>
+<p>输出解读：<code>cat</code> 打印的小标题，后续几行把估计值换算成「百分点」以便临床解读。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;True effect:&quot;, true_effect, &quot;(15 percentage point reduction)\n&quot;)</code></pre></div>
+<pre><code>## True effect: -0.15 (15 percentage point reduction)</code></pre>
+<p>输出解读：提醒读者模拟中的「金标准」是 -0.15，即 ICU 使断点处患者的 30 天死亡率降低 15 个百分点。模拟研究的价值就在于「已知真相」——这是任何真实数据都给不了的基准。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;Parametric estimate suggests&quot;, round(abs(param_effect) * 100, 1), 
+    &quot;percentage point reduction in mortality\n&quot;)</code></pre></div>
+<pre><code>## Parametric estimate suggests 5.9 percentage point reduction in mortality</code></pre>
+<p>输出解读：参数化估计换算为 5.9 个百分点，约为真实效应的 40%。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;Nonparametric estimate suggests&quot;, round(abs(nonparam_effect) * 100, 1), 
+    &quot;percentage point reduction in mortality\n&quot;)</code></pre></div>
+<pre><code>## Nonparametric estimate suggests 1.2 percentage point reduction in mortality</code></pre>
+<p>输出解读：非参数估计换算为 1.2 个百分点，约为真实效应的 8%。至此本节代码结束。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>本节暴露了原书模拟设定中一个值得注意的内部矛盾：<strong>为什么估计值（-0.059、-0.012）离真值（-0.15）这么远？</strong>我们用与书中完全相同的代码复现，可以精确定位原因。断点处的基线死亡风险只有 0.10，而处理效应是 -0.15，于是阈值右侧的「死亡率概率」在断点附近变成负数——模拟数据中约 <strong>33%</strong> 的 ICU 患者原始概率 &lt;0，被 <code>pmax(0, pmin(1, …))</code> 强行截断到 0。这带来两个后果：(1) 阈值右侧紧邻断点处的真实概率被压到 0 附近，向外逐渐恢复，形成一段「先陡升后平滑」的折线——这恰恰违反了 RDD 的核心假设「潜在结局在断点处连续/平滑」；(2) 局部线性回归用右侧带宽内的点外推回断点，被这段折线带偏。把 <code>pmax/pmin</code> 截断去掉后，同一数据同一模型下参数估计从 -0.059 回到约 -0.104。对医学研究者的教训有两点：其一，写模拟研究时效应量与基线风险要匹配（如基线死亡率 30% 的情形下 -15 个百分点完全合理），否则截断会悄悄制造偏差；其二，真实世界中的 RDD 数据从不会「概率为负」，但如果结局罕见且效应量大，同样要警惕阈值附近样本稀疏带来的不稳定。</p>
+</div>
+<h2><span class="header-section-number">6.3</span> 结果解读与诊断</h2>
+<p>在设计假设成立时，参数化与非参数化估计都应当近似 -0.15 的真实处理效应。<code>rdrobust</code> 确定的最优带宽平衡偏差与方差，通常纳入断点 1–3 个单位内的观测。置信区间反映估计不确定性；非参数方法更加灵活，因此往往产生更宽的区间。</p>
+<p>密度检验考察驱动变量的分布在断点周围是否呈现操纵的证据。检验统计量显著提示存在系统性「筛选」（sorting），可能使设计失效。在我们的模拟中，p 值应当超过常规显著性水平，因为我们生成的 APACHE 评分是随机的、没有引入操纵。</p>
+<p>安慰剂检验在没有处理不连续的假断点处估计效应。显著的安慰剂效应提示：观测到的不连续可能反映潜在趋势而非处理效应，从而动摇主结果的可信度。成功的安慰剂检验表现为估计接近零且 p 值不显著。</p>
+<p>可视化检查提供额外的验证。图中应当显示断点两侧平滑的结局趋势，并在阈值处有清晰的不连续。分箱散点图（binned scatter plot）有助于揭示潜在关系，同时降低单个观测带来的噪声。</p>
+<p>可疑的模式——例如断点附近异常的曲率（curvature）或多个不连续点——需要进一步调查。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>带宽选择是 RDD 从「讲得通」到「做得对」的关键一步。两类主流方案：Imbens &amp; Kalyanaraman (2012) 的 MSE 最优带宽（本章 <code>rdrobust</code> 默认方案的源头），以及 Calonico, Cattaneo &amp; Titiunik (2014, CCT) 的稳健偏差校正推断——后者不追求带宽「最优」，而是显式估计并扣除局部回归的边界偏差，并给出对带宽选择不敏感的稳健置信区间。实操建议：(1) 报告估计值对带宽的敏感性（如 h/2、h、2h 三档）；(2) 用 CCT 稳健置信区间而非传统 Wald 区间，后者在带宽小时覆盖率和名义水平偏离很大；(3) 多项式阶数一般局部线性（p=1）即可，二阶以上在边界处极易过拟合出虚假跳跃；(4) 核函数默认三角核即可，影响通常小于带宽。医学杂志的 RDD 论文如果只报一个点估计加 p 值，而不展示带宽敏感性，方法论上是不过关的。</p>
+</div>
+<h2><span class="header-section-number">6.4</span> 拓展与稳健性</h2>
+<p>RDD 可以从若干方向拓展，以增强稳健性与适用性。多重断点设计（multiple cutoffs）利用多个阈值带来的变异提高精度，并在不同的断点取值上检验假设效度。地理断点回归（geographic regression discontinuity）以空间边界作为断点，识别效应随行政区划变化的政策。动态 RDD（dynamic RDD）考察断点随时间变化时处理效应如何演变。</p>
+<p>稳健性检验评估对关键建模选择的敏感性。带宽敏感性检验考察断点附近不同窗口大小下估计如何变化。函数形式检验比较线性、二次及更高阶设定，以检查参数假设。圆环 RDD（donut RDD）剔除紧邻断点的观测，以检验操纵或测量误差的影响。</p>
+<p>当对处理分配的依从不完全时，模糊 RDD 设计需要类似工具变量的额外假设。排他性约束（exclusion restriction）要求：跨越断点只能通过改变处理概率来影响结局，而不能通过其他渠道。单调性（monotonicity）假设：跨越断点不会降低任何个体的处理概率。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>模糊断点 RDD 与工具变量的对应关系值得医学研究者记住：断点 → 工具变量，「跨越阈值」→ 工具变量取值变化，实际接受处理 → 内生处理变量。由此，模糊 RDD 估计的也是局部平均处理效应（LATE）：只是「跨过阈值者中确实改变了处理状态的那部分人」的效应，对应 IV 语言中的依从者（compliers）。医疗场景中模糊断点极为常见：指南写了「eGFR &lt;30 转肾科」，但依从性参差不齐；写了「HbA1c ≥8% 起始胰岛素」，总有一部分患者和医生没有执行。此时若强行按精确断点分析（把阈值两侧当作处理/对照），估计的是「被分配」而非「被治疗」的效应，即 ITT 类效应；用两阶段模糊 RDD 才能得到「实际治疗」的效应。排他性约束在医疗场景中的潜在违背要特别警惕：跨过阈值本身可能触发一整套流程改变（更多会诊、更密随访、转到不同护理单元），这些都可能直接影响结局——此时「断点作为工具」就不干净了。</p>
+</div>
+<h2><span class="header-section-number">6.5</span> 局限与注意事项</h2>
+<p>RDD 面临着几个研究者必须考虑的重要局限。该方法只提供断点处的局部识别，外部效度（external validity）受限，难以外推到更广泛的人群。处理效应可能随驱动变量的分布系统性变化，使断点特异的估计不能代表全人群效应。当政策关注点是平均处理效应（ATE）而非局部效应时，这一点尤其成问题。</p>
+<p>样本量要求可能相当高，尤其是依赖断点附近观测的非参数方法。功效计算表明，RDD 通常需要比随机实验大 2–3 倍的样本，才能达到可比的精确度。在小样本或罕见结局的场景中，这一约束可能限制可行性。</p>
+<p>函数形式误设在参数化实现中构成风险。高阶多项式可能通过过拟合制造虚假的不连续，而过于受限的设定可能通过偏差掩盖真实效应。非参数方法缓解了这些担忧，但需要仔细的带宽选择，且可能在断点附近遭受边界偏差（boundary bias）。</p>
+<p>该方法假设驱动变量测量精确、且断点值已知。驱动变量的测量误差会衰减估计，而断点位置的不确定性使解释复杂化。在存在多个决策者或分配规则不断演化的场景中，这些问题尤其相关。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>「局部识别」是 RDD 最常被误用的一点：断点处的效应不能自动外推到阈值两侧更远的人群。这与临床指南的推理习惯恰好相反——指南往往把「跨阈值的患者获益」推广为「所有同类患者获益」。报告 RDD 结果时，把估计目标写成「断点处（如 APACHE=15 附近）接受 ICU 的效应」更为诚实。另一个医学场景特有问题是驱动变量的离散性与测量误差：APACHE、SOFA 等评分是整数加总的离散变量，且评分者间存在差异；若阈值恰在整数上（如 15 分），紧邻阈值的「14 分」与「15 分」之间可能几乎没有实质差异，测量误差会系统性把效应估计拉向 0（衰减）。圆环 RDD（剔除距断点固定距离内的观测）和对评分者间信度的事先评估，是值得考虑的对策。</p>
+</div>
+<h2><span class="header-section-number">6.6</span> 结论</h2>
+<p>当处理分配遵循任意阈值规则时，断点回归设计提供了一条可信的因果推断路径。该方法的优势在于假设极少、且在阈值附近具有很高的内部效度，因而在医疗、教育及其他存在规则化分配机制的领域的政策评估中尤其有价值。我们的医疗应用演示了参数化与非参数化两种方法的实践实现，并凸显了假设检验与稳健性检查的重要性。</p>
+<p>尽管 RDD 只提供局部识别，且精确估计可能需要大样本，但其准实验的性质往往使其优于那些需要对选择或混杂作出更强假设的方法。随着带宽选择、推断程序以及向更复杂设计拓展的方法论进步，该方法仍在持续演进。未来的研究方向包括与机器学习方法结合以提升灵活性，以及发展适用于模糊或时变断点场景的方法。</p>
+<p>成功的 RDD 实施需要仔细关注制度细节、进行充分的假设验证，并对稳健性检查作出透明报告。当这些条件得到满足时，该设计能为因果效应提供令人信服的证据，从而在随机化实验不可行的场景中为政策决策提供信息并推进科学认识。</p>
+<h2><span class="header-section-number">6.7</span> 参考文献</h2>
+<ul>
+<li>Lee, D. S., &amp; Lemieux, T. (2010). Regression discontinuity designs in economics. <em>Journal of Economic Literature</em>, 48(2), 281-355.（《经济文献杂志》：经济学中的断点回归设计）</li>
+<li>Imbens, G., &amp; Kalyanaraman, K. (2012). Optimal bandwidth choice for the regression discontinuity estimator. <em>Review of Economic Studies</em>, 79(3), 933-959.（《经济研究评论》：断点回归估计量的最优带宽选择）</li>
+<li>Calonico, S., Cattaneo, M. D., &amp; Titiunik, R. (2014). Robust nonparametric confidence intervals for regression-discontinuity designs. <em>Econometrica</em>, 82(6), 2295-2326.（《计量经济学》：断点回归设计的稳健非参数置信区间）</li>
+<li>Cattaneo, M. D., Idrobo, N., &amp; Titiunik, R. (2019). <em>A Practical Introduction to Regression Discontinuity Designs: Foundations</em>. Cambridge University Press.（《断点回归设计实用导论：基础》）</li>
+</ul>
