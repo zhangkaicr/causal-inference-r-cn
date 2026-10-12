@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme-default="light">
+<head>
+<script>
+(function(){
+  var KEY="share-theme", d=document.documentElement;
+  try{var saved=localStorage.getItem(KEY);}catch(e){var saved=null;}
+  d.setAttribute("data-theme", saved || d.getAttribute("data-theme-default") || "light");
+  document.addEventListener("DOMContentLoaded",function(){
+    var b=document.getElementById("theme-toggle"); if(!b) return;
+    function sync(){
+      var dark=d.getAttribute("data-theme")==="dark";
+      b.setAttribute("aria-pressed", dark?"true":"false");
+      b.setAttribute("title", dark?"切换到亮色主题 (Alt+T)":"切换到暗色主题 (Alt+T)");
+    }
+    b.addEventListener("click",function(){
+      var nxt=d.getAttribute("data-theme")==="dark"?"light":"dark";
+      d.setAttribute("data-theme",nxt);
+      try{localStorage.setItem(KEY,nxt);}catch(e){}
+      sync();
+    });
+    document.addEventListener("keydown",function(e){
+      if(e.altKey&&(e.key==="t"||e.key==="T")) b.click();
+    });
+    sync();
+  });
+})();
+</script>
+<script>
+window.MathJax={tex:{inlineMath:[['\\(','\\)'],['$','$']],displayMath:[['\\[','\\]'],['$$','$$']]},
+options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 11 章 用于因果推断的 g-计算</title>
+<style>
+:root{
+  --bg:#f7f7f5; --card:#ffffff; --text:#2c2c2a; --muted:#6b6a65;
+  --line:#e3e2dd; --accent:#534ab7; --accent-soft:#eeedfe; --tag:#f1efe8;
+  --code-bg:#f4f3ef; --code-line:#e7e5df; --code-text:#2c2c2a;
+  --note-bg:#eef6ff; --note-line:#bcd6f5; --note-text:#1f3a5f;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;line-height:1.8;margin:0}
+.wrap{max-width:900px;margin:0 auto;padding:32px 22px 80px}
+.topbar{margin-bottom:26px;display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--accent);text-decoration:none;font-size:14px;font-weight:600}
+.back:hover{text-decoration:underline}
+.chpos{font-size:13px;color:var(--muted);letter-spacing:.04em}
+h1{font-size:30px;font-weight:700;letter-spacing:-.3px;margin:6px 0 4px;line-height:1.3}
+.sub{color:var(--muted);font-size:14px;margin-bottom:8px}
+.sub a{color:var(--accent)}
+.lead{font-size:16px;color:var(--text);margin:14px 0 22px;border-left:3px solid var(--accent);padding:4px 0 4px 16px;background:var(--accent-soft);border-radius:0 8px 8px 0}
+.content h2{font-size:22px;font-weight:700;margin:38px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.content h3{font-size:18px;font-weight:700;margin:26px 0 10px}
+.content h4{font-size:16px;font-weight:700;margin:20px 0 8px}
+.content p{margin:12px 0}
+.content ul,.content ol{margin:12px 0;padding-left:26px}
+.content li{margin:6px 0}
+.content a{color:var(--accent);text-decoration:none}
+.content a:hover{text-decoration:underline}
+.content img{max-width:100%;height:auto;border:1px solid var(--line);border-radius:8px;margin:14px 0;background:#fff;display:block}
+.content blockquote{margin:14px 0;padding:10px 16px;border-left:3px solid var(--line);background:var(--tag);border-radius:0 8px 8px 0;color:var(--muted)}
+.note{margin:18px 0;padding:14px 18px;border:1px solid var(--note-line);background:var(--note-bg);border-radius:10px;color:var(--note-text)}
+.note .nt{display:inline-block;font-weight:700;font-size:13px;letter-spacing:.04em;margin-bottom:6px;color:var(--accent)}
+.note p{margin:6px 0}
+.rulebox{margin:18px 0;padding:14px 18px;border-radius:10px;background:#5ADDD7;color:#0c2c2a}
+.rulebox h3{margin:0 0 6px;color:#0c2c2a}
+.rulebox p{margin:0;font-weight:400;color:#0c2c2a}
+.toc{margin:22px 0;padding:16px 20px;border:1px solid var(--line);background:var(--card);border-radius:10px}
+.toc .ttl{font-weight:700;font-size:14px;color:var(--muted);margin-bottom:8px;letter-spacing:.04em}
+.toc ol{margin:0;padding-left:22px;columns:2;column-gap:28px}
+.toc li{margin:4px 0;font-size:14.5px}
+.toc a{color:var(--text)}
+.foot{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.foot a{color:var(--accent)}
+.csl-entry{margin:8px 0;font-size:13.5px;line-height:1.6;padding-left:14px;text-indent:-14px}
+pre{background:var(--code-bg);border:1px solid var(--code-line);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.6;color:var(--code-text);margin:14px 0}
+pre code{background:none;border:none;padding:0;font-size:inherit;color:inherit}
+code{background:var(--code-bg);border:1px solid var(--code-line);border-radius:4px;padding:1px 5px;font-size:.92em;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--tag);font-weight:700}
+.pager{display:flex;justify-content:space-between;gap:12px;margin-top:40px;flex-wrap:wrap}
+.pager a{flex:1 1 45%;min-width:200px;padding:12px 16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);text-decoration:none;font-size:14px}
+.pager a:hover{border-color:var(--accent);color:var(--accent)}
+.pager .next{text-align:right}
+.pager .disabled{opacity:.35;pointer-events:none}
+:root[data-theme="dark"]{--bg:#0f1116;--card:#181b22;--text:#e4e6ea;--muted:#98a0ac;--line:#2a2f3a;--accent:#7aa2f7;--accent-soft:#16203a;--tag:#1e222b;--code-bg:#0b0d12;--code-line:#1d2129;--code-text:#d7dae0;--note-bg:#15233b;--note-line:#274168;--note-text:#bcd6f5}
+:root[data-theme="dark"] .content img{background:#0b0d12}
+:root[data-theme="dark"] .rulebox{background:#1c5b56;color:#d6f5f1}
+:root[data-theme="dark"] .toc{background:var(--card)}
+.tt{position:fixed;top:16px;right:16px;z-index:9999;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;color:var(--text);background:var(--card);border:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.24)}
+.tt:hover{transform:translateY(-1px);border-color:var(--accent)}
+.tt svg{display:none}
+[data-theme="dark"] .ico-sun{display:block}
+[data-theme="dark"] .ico-moon{display:none}
+[data-theme="light"] .ico-sun{display:none}
+[data-theme="light"] .ico-moon{display:block}
+@media(max-width:640px){.tt{top:10px;right:10px;width:36px;height:36px}}
+@media print{.tt{display:none}}
+</style>
+</head>
+<body>
+<button id="theme-toggle" class="tt" type="button" aria-label="切换明暗主题" title="切换明暗主题 (Alt+T)">
+  <svg class="ico-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12H5M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
+  <svg class="ico-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 14.5A8.2 8.2 0 0 1 9.5 4a8.2 8.2 0 1 0 10.5 10.5z"/></svg>
+</button>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="../index.html">&larr; 返回全书目录</a>
+    <span class="chpos">第 11 章 / 共 14 章</span>
+  </div>
+  <h1>第 11 章 用于因果推断的 g-计算</h1>
+  <p class="sub">原书第 11 章 · <a href="https://kamran-afzali.github.io/Bookdown_Causality/g-computation-for-causal-inference.html">g-computation-for-causal-inference.html</a> · Kamran Afzali《Causal Inference in R》中文译本 · 非官方翻译</p>
+  <div class="content">
+<h2>11.1 引言</h2>
+<p>一位 55 岁的高血压患者来门诊就诊。她目前正在服用一线降压药，而你正在考虑为她加用他汀以保护心血管。但这个决定并不简单——你需要考虑的不仅是他汀的直接效应，还有它可能如何与她的降压药相互作用、她的治疗依从性会如何变化，以及在不同治疗策略下她未来十年的心血管风险轨迹。传统临床试验给出的是人群平均效应，其适用人群可能与这位患者复杂的病情画像和治疗经历并不匹配。</p>
+<p>这正是 g-计算（G-computation）大显身手的地方——它是因果推断中最强大却被利用不足的工具之一。g-计算由 Jamie Robins 于 20 世纪 80 年代提出，通过对数据生成过程进行显式建模，并利用这些模型模拟不同治疗策略（treatment regime）下的反事实（counterfactual）结局，为从观察性数据估计因果效应提供了一个通用框架。与聚焦于建模处理分配的倾向得分（propensity score）方法不同，g-计算直接对结局过程建模，因而能够在处理与混杂（confounder）随时间变化的复杂纵向场景中估计效应。</p>
+<p>方法之名来自「G 公式」（G-formula）——一个通过对混杂因子分布做标准化（standardization）来获得边际因果效应的数学表达式。尽管其理论可能令人望而生畏，核心直觉却相当直白：如果我们能建立「在控制混杂的前提下，处理如何影响结局」的好模型，就能用这些模型预测在不同治疗策略下会发生什么。通过比较不同情景下的预测，我们无需依赖传统回归调整那种强参数假设，即可还原因果效应。</p>
+<p>在其他因果方法力不从心的若干场景中，g-计算表现出色。它能处理时变处理（time-varying treatment）——即某一时间点的处理决策依赖于既往结局，这在临床医生依据患者病情演变调整用药的慢性病管理中十分常见。该方法天然支持中介分析，因为可以对位于处理与结局之间因果路径上的中间变量进行显式建模。它既能给出特定患者画像的条件效应，也能给出按人群特征平均的边际效应，灵活性足以匹配多样的研究问题。或许最重要的是，g-计算能够估计复杂动态治疗策略下的效应，而这类策略在随机试验中是不可能研究或不合伦理的。</p>
+<p>g-计算的理论基础建立在潜在结局（potential outcomes）框架与 Pearl 的 do-演算之上，为把观察性关联转化为因果陈述提供了严格依据。考虑一个简单设定：处理 <span class="math inline">\(A\)</span>、结局 <span class="math inline">\(Y\)</span> 与基线混杂因子 <span class="math inline">\(L\)</span>。在潜在结局框架下，每个个体都有潜在结局 <span class="math inline">\(Y^{a}\)</span>，表示若其接受处理水平 <span class="math inline">\(a\)</span> 时的结局。处理相对于不处理的因果效应为 <span class="math inline">\(\mathbb{E}[Y^{1} - Y^{0}]\)</span>，但我们面对因果推断的根本问题：我们只能观测到 <span class="math inline">\(Y^{A}\)</span>，即实际所接受处理下的结局。</p>
+<p>G 公式给出了在可交换性（exchangeability，又称可忽略性 ignorability、无未测量混杂）假设下完成识别（identification）的关键。该假设断言：在给定已测量混杂因子 <span class="math inline">\(L\)</span> 的条件下，处理分配独立于潜在结局，即对所有 <span class="math inline">\(a\)</span> 有 <span class="math inline">\(Y^{a} \perp A \mid L\)</span>。此外我们还需要正值性（positivity）：给定其混杂因子取值，每个个体接受任一处理水平的概率都为正，即对所有相关的 <span class="math inline">\(a\)</span> 与 <span class="math inline">\(l\)</span> 有 <span class="math inline">\(P(A = a \mid L = l) &gt; 0\)</span>。在这些假设下，G 公式把潜在结局的边际均值表示为 <span class="math inline">\(\mathbb{E}[Y^{a}] = \sum_{l} \mathbb{E}[Y \mid A = a, L = l] \cdot P(L = l)\)</span>。</p>
+<p>这个公式有一个优雅的解释：要计算「若所有人都接受处理 <span class="math inline">\(a\)</span>」的平均结局，我们先算出在混杂因子的每一种模式下、接受处理 <span class="math inline">\(a\)</span> 时的期望结局，再按人群中混杂因子的实际分布求平均。这种标准化通过使各处理组在混杂因子分布上可比，从而消除混杂。因果效应即不同处理取值下这些标准化均值之差：<span class="math inline">\(\mathbb{E}[Y^{1}] - \mathbb{E}[Y^{0}]\)</span>。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>g-计算与流行病学里的「标准化」是一脉相承的。单时点、单处理的 G 公式，本质上就是对结局模型 <span class="math inline">\(\mathbb{E}[Y \mid A, L]\)</span> 做<strong>直接标准化</strong>：把每个人在「若接受处理」下的预测值算出来，再对人群求平均。这与计算标准化死亡率比（SMR）时用标准人口构成加权各层率、或计算 Mantel–Haenszel 合并 OR 时按层加权，思路完全相同，只是 g-计算把这一操作推广到了多时点、时变处理的一般情形。Robins 1986 年的原始论文标题就叫「A new approach to causal inference in mortality studies with sustained exposure periods」，服务对象正是职业流行病学中的「持续暴露」问题。对临床研究者而言，记住这一点很有用：g-计算并不是什么神秘的新机器学习，而是标准化思想在复杂数据上的彻底执行。</p>
+</div>
+<p>G 公式可以自然推广到处理与混杂皆时变的纵向场景：治疗史会影响未来的混杂因子，而混杂因子又反过来影响未来的处理决策。这就造成了时依混杂（time-dependent confounding），它违反了标准回归调整的假设。考虑一系列处理决策 <span class="math inline">\(A_0, A_1, \ldots, A_K\)</span>，以及在每次处理决策前测量的时变混杂因子 <span class="math inline">\(L_0, L_1, \ldots, L_K\)</span>，最终结局 <span class="math inline">\(Y\)</span> 在时间 <span class="math inline">\(K+1\)</span> 测量。对于治疗策略 <span class="math inline">\(\bar{a} = (a_0, a_1, \ldots, a_K)\)</span>，纵向 G 公式变为</p>
+<p><span class="math display">\[\mathbb{E}[Y^{\bar{a}}] = \sum_{\bar{l}} \mathbb{E}[Y \mid \bar{A} = \bar{a}, \bar{L} = \bar{l}] \prod_{k=0}^{K} P(L_k = l_k \mid \bar{A}_{k-1} = \bar{a}_{k-1}, \bar{L}_{k-1} = \bar{l}_{k-1})\]</span></p>
+<p>这个令人生畏的表达式刻画了纵向数据的序列本质：既往的处理与混杂会影响未来协变量的演化。公式对一切可能的混杂因子轨迹做边缘化，并按目标治疗策略下每条轨迹的概率加权。尽管精确计算需要对所有可能的协变量历史求和（实际上计算上不可行），我们可以通过参数建模与蒙特卡洛（Monte Carlo）模拟来近似这个期望。</p>
+<p>参数化 G 公式算法通过三个基本步骤把数学公式转化为实用的计算流程：模型设定、蒙特卡洛模拟与效应估计。该方法要求为「处理如何影响结局」以及「处理与既往历史如何影响未来混杂因子」分别设定参数模型，然后利用这些模型模拟不同治疗策略下的反事实轨迹。</p>
+<p>在模型设定阶段，我们为每个时变成分分别构建回归模型。对结局，我们把 <span class="math inline">\(\mathbb{E}[Y \mid \bar{A}, \bar{L}]\)</span> 建模为处理史与混杂因子史的函数，通常使用与结局类型相匹配的广义线性模型。对每个时变混杂因子 <span class="math inline">\(L_k\)</span>，我们建模 <span class="math inline">\(P(L_k \mid \bar{A}_{k-1}, \bar{L}_{k-1})\)</span>，以捕捉既往处理与协变量如何影响未来的协变量取值。这些模型体现了我们对数据生成过程的理解，无需在所有细节上都正确——只需足够准确地刻画处理、混杂与结局之间的关系，从而给出无偏的效应估计即可。</p>
+<p>蒙特卡洛模拟阶段在不同治疗策略下生成反事实数据集。从每个个体观测到的基线协变量 <span class="math inline">\(L_0\)</span> 出发，我们按时间向前模拟：先赋予指定的处理取值 <span class="math inline">\(a_0\)</span>，再用拟合好的混杂因子模型在给定 <span class="math inline">\(a_0\)</span> 与 <span class="math inline">\(L_0\)</span> 的条件下模拟 <span class="math inline">\(L_1\)</span>，如此推进直至所有时间点。对每一个感兴趣的治疗策略，这一过程都会生成一份完整的反事实数据集，其中每个个体都遵循同一套治疗策略。通过模拟每种治疗策略下混杂因子的自然演化，我们造出了在随机试验中本应可交换的合成比较组。</p>
+<p>最后，把结局模型分别拟合到每份模拟数据集上并对所有个体的预测取平均，即可估计每种策略下的结局。因果效应就从这些策略特异（regime-specific）的结局估计的比较中浮现。若要得到同时反映抽样波动与模型估计不确定性的置信区间，需要自助重采样（bootstrap resampling）：在原始数据的自助样本上重复整个流程，以量化估计的不确定性。</p>
+<h2>11.2 案例研究：长期高血压管理</h2>
+<p>我们将通过一个贴近现实的场景来探索 g-计算：高血压管理，其中处理强度时变，心血管风险不断演化。我们的目标是估计持续强化降压相对于标准降压对五年心血管事件风险的影响，同时纳入基于患者状态演化的治疗调整。</p>
+<p>这个模拟捕捉了高血压管理的若干真实特征：依据血压水平与危险因素强化治疗、影响疗效的非完美依从性、依赖治疗与依从模式的血压演化，以及受当前血压、治疗与基线危险因素共同影响的心血管事件。时依混杂会自然浮现：时间 <span class="math inline">\(t\)</span> 的血压既影响时间 <span class="math inline">\(t\)</span> 的治疗决策，也影响时间 <span class="math inline">\(t+1\)</span> 的结局，而既往治疗又会影响当前血压。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>时依杂因为什么难倒传统方法？设想用一锅端的多元回归同时调整基线变量和每次随访的血压。问题是随访期的血压本身就是既往处理的<strong>结果</strong>（处理→血压→后续处理→结局），它在因果图上既不是纯粹的混杂因子，也不是纯粹的中介。把这类变量当混杂因子调整，相当于在一条因果路径上「过度控制」（over-control），可能引入对撞偏倚（collider bias）或屏蔽掉真实效应——Robins 称之为「调整了坏控制变量」（bad control）。这正是为什么在观察性纵向数据中，他汀、依从性、血压这类彼此纠缠的变量不能简单地「全部塞进回归」：g-计算的策略是给每个变量建各自的模型，再按时间顺序正向模拟，让因果次序自动归位。</p>
+</div>
+<div class="sourceCode" id="cb330"><pre class="sourceCode r"><code class="sourceCode r">if (!require("data.table")) install.packages("data.table")</code></pre></div>
+<pre><code>## Loading required package: data.table</code></pre>
+<pre><code>## data.table 1.17.0 using 1 threads (see ?getDTthreads).  Latest news: r-datatable.com
+## **********
+## This installation of data.table has not detected OpenMP support. It should still work but in single-threaded mode.
+## This is a Mac. Please read https://mac.r-project.org/openmp/. Please engage with Apple and ask them for support. Check r-datatable.com for updates, and our Mac instructions here: https://github.com/Rdatatable/data.table/wiki/Installation. After several years of many reports of installation problems on Mac, it's time to gingerly point out that there have been no similar problems on Windows or Linux.
+## **********
+## 
+## Attaching package: 'data.table'
+## 
+## The following objects are masked from 'package:xts':
+## 
+##     first, last
+## 
+## The following objects are masked from 'package:reshape2':
+## 
+##     dcast, melt
+## 
+## The following objects are masked from 'package:zoo':
+## 
+##     yearmon, yearqtr
+## 
+## The following objects are masked from 'package:lubridate':
+## 
+##     hour, isoweek, mday, minute, month, quarter, second, wday, week, yday, year
+## 
+## The following objects are masked from 'package:dplyr':
+## 
+##     between, first, last
+## 
+## The following object is masked from 'package:purrr':
+## 
+##     transpose</code></pre>
+<p>输出解读：安装并加载 <code>data.table</code>。这段输出是 macOS 上加载该包的「例行公事」：OpenMP 提示说明未启用多线程（不影响结果，只影响速度），而 masked objects 列表提醒 <code>first</code>、<code>last</code>、<code>melt</code> 等函数名与其他包冲突，后加载的包会屏蔽先加载包中的同名函数——多包协同时值得留意。</p>
+<div class="sourceCode" id="cb333"><pre class="sourceCode r"><code class="sourceCode r">if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("betareg")) install.packages("betareg")</code></pre></div>
+<pre><code>## Loading required package: betareg</code></pre>
+<pre><code>## Warning: package 'betareg' was built under R version 4.5.1</code></pre>
+<p>输出解读：ggplot2、dplyr 已在之前加载，此处只加载 <code>betareg</code>（用于拟合依从性的 beta 回归）。Warning 仅提示该包编译时的 R 版本与当前版本不同，通常可忽略。</p>
+<div class="sourceCode" id="cb336"><pre class="sourceCode r"><code class="sourceCode r">if (!require("survival")) install.packages("survival")
+
+library(data.table)
+library(ggplot2)
+library(dplyr)
+library(betareg)
+library(survival)
+
+set.seed(123)
+
+
+simulate_hypertension_data &lt;- function(n = 1000, time_points = 6) {
+  
+  # 基线特征
+  baseline &lt;- data.frame(
+    id = 1:n,
+    age = rnorm(n, 55, 8),
+    diabetes = rbinom(n, 1, 0.3),
+    smoking = rbinom(n, 1, 0.25),
+    baseline_sbp = rnorm(n, 145, 15)
+  )
+  
+  # 预分配长度正确的列表
+  long_data &lt;- vector("list", n)
+  
+  for (i in 1:n) {
+    # 个体基线取值
+    sbp &lt;- baseline$baseline_sbp[i]
+    treatment &lt;- 0
+    adherence &lt;- 1
+    
+    # 预分配数据框
+    individual_data &lt;- data.frame(
+      id = rep(baseline$id[i], time_points),
+      time = 0:(time_points - 1),
+      age = rep(baseline$age[i], time_points),
+      diabetes = rep(baseline$diabetes[i], time_points),
+      smoking = rep(baseline$smoking[i], time_points),
+      sbp = numeric(time_points),
+      treatment = numeric(time_points),
+      adherence = numeric(time_points),
+      cvd_event = numeric(time_points),
+      event_time = rep(NA, time_points)
+    )
+    
+    cvd_event_occurred &lt;- FALSE
+    event_time &lt;- NA
+    
+    for (t in 0:(time_points - 1)) {
+      # 记录当前状态
+      individual_data$sbp[t + 1] &lt;- sbp
+      individual_data$treatment[t + 1] &lt;- treatment
+      individual_data$adherence[t + 1] &lt;- adherence
+      
+      # 心血管事件（仅新发事件）
+      if (!cvd_event_occurred) {
+        event_prob &lt;- plogis(-8 + 0.04 * sbp + 0.05 * baseline$age[i] + 
+                               0.8 * baseline$diabetes[i] + 0.6 * baseline$smoking[i] - 
+                               0.5 * treatment * adherence)
+        cvd_event_occurred &lt;- rbinom(1, 1, event_prob) == 1
+        
+        if (cvd_event_occurred) {
+          event_time &lt;- t
+        }
+      }
+      
+      # 记录事件（新发事件；建模时不作为吸收态）
+      individual_data$cvd_event[t + 1] &lt;- as.integer(cvd_event_occurred &amp;&amp; t == event_time)
+      individual_data$event_time[t + 1] &lt;- event_time
+      
+      # 为下一个时间点更新变量
+      if (t &lt; time_points - 1) {
+        # 处理决策（基于既往血压与危险因素）
+        treatment_prob &lt;- plogis(-2 + 0.03 * sbp + 0.5 * baseline$diabetes[i] + 
+                                   0.3 * baseline$smoking[i])
+        treatment &lt;- rbinom(1, 1, treatment_prob)
+        
+        # 依从性（受处理强度影响）
+        adherence_mean &lt;- plogis(1 - 0.5 * treatment + 0.01 * (sbp - 120))
+        # 做变换以避免 beta 回归的边界问题
+        adherence &lt;- pmin(0.99, pmax(0.01, rnorm(1, adherence_mean, 0.15)))
+        
+        # 更新收缩压（受处理与依从性影响）
+        treatment_effect &lt;- -12 * treatment * adherence
+        sbp &lt;- 0.7 * sbp + 0.3 * baseline$baseline_sbp[i] + 
+          treatment_effect + rnorm(1, 0, 5)
+        sbp &lt;- pmax(90, pmin(200, sbp))
+      }
+    }
+    
+    long_data[[i]] &lt;- individual_data
+  }
+  
+  # 合并所有个体数据
+  data &lt;- rbindlist(long_data)
+  setorder(data, id, time)
+  
+  return(as.data.frame(data))
+}
+
+# 生成数据集
+cat("Simulating longitudinal hypertension data...\n")</code></pre></div>
+<pre><code>## Simulating longitudinal hypertension data...</code></pre>
+<p>输出解读：数据生成函数已就位并运行。这个函数按个体逐个模拟「基线 → 随访 5 期」的完整轨迹：每期先根据当前血压、糖尿病、吸烟决定是否治疗，再根据治疗强度与血压决定依从性，然后更新血压（治疗 × 依从的系数为 -12，即坚持治疗者血压下降明显），最后按当前血压、年龄、糖尿病、吸烟和治疗依从情况抽取是否发生心血管事件。注意事件概率里的 <code>-0.5 * treatment * adherence</code>：治疗的保护作用要打折于依从性——这正是后面反事实模拟中必须建模「依从性」的原因。</p>
+<div class="sourceCode" id="cb338"><pre class="sourceCode r"><code class="sourceCode r">hypertension_data &lt;- simulate_hypertension_data(n = 1000, time_points = 6)
+
+# 创建滞后变量
+hypertension_data &lt;- hypertension_data %&gt;%
+  group_by(id) %&gt;%
+  mutate(
+    sbp_lag = lag(sbp, default = first(sbp)),
+    treatment_lag = lag(treatment, default = 0),
+    adherence_lag = lag(adherence, default = 1)
+  ) %&gt;%
+  ungroup() %&gt;%
+  as.data.frame()
+
+# 展示汇总统计量
+cat("\nDataset Summary:\n")</code></pre></div>
+<pre><code>## 
+## Dataset Summary:</code></pre>
+<div class="sourceCode" id="cb340"><pre class="sourceCode r"><code class="sourceCode r">cat("Total observations:", nrow(hypertension_data), "\n")</code></pre></div>
+<pre><code>## Total observations: 6000</code></pre>
+<div class="sourceCode" id="cb342"><pre class="sourceCode r"><code class="sourceCode r">cat("Number of patients:", length(unique(hypertension_data$id)), "\n")</code></pre></div>
+<pre><code>## Number of patients: 1000</code></pre>
+<div class="sourceCode" id="cb344"><pre class="sourceCode r"><code class="sourceCode r">cat("Time points:", max(hypertension_data$time) + 1, "\n")</code></pre></div>
+<pre><code>## Time points: 6</code></pre>
+<p>输出解读：数据集共 6000 行 = 1000 名患者 × 6 个时间点，是无删失的平衡面板。滞后变量（sbp_lag、treatment_lag、adherence_lag）已按个体构造，供后续模型使用。</p>
+<div class="sourceCode" id="cb346"><pre class="sourceCode r"><code class="sourceCode r">cat("\nBaseline characteristics:\n")</code></pre></div>
+<pre><code>## 
+## Baseline characteristics:</code></pre>
+<div class="sourceCode" id="cb348"><pre class="sourceCode r"><code class="sourceCode r">print(summary(hypertension_data[hypertension_data$time == 0, 
+                                c("age", "diabetes", "smoking", "sbp")]))</code></pre></div>
+<pre><code>##       age           diabetes        smoking           sbp       
+##  Min.   :32.52   Min.   :0.000   Min.   :0.000   Min.   :102.3  
+##  1st Qu.:49.97   1st Qu.:0.000   1st Qu.:0.000   1st Qu.:135.2  
+##  Median :55.07   Median :0.000   Median :0.000   Median :144.2  
+##  Mean   :55.13   Mean   :0.307   Mean   :0.263   Mean   :144.7  
+##  3rd Qu.:60.32   3rd Qu.:1.000   3rd Qu.:1.000   3rd Qu.:154.6  
+##  Max.   :80.93   Max.   :1.000   Max.   :1.000   Max.   :196.3</code></pre>
+<p>输出解读：基线画像符合模拟设定——平均年龄 55 岁，糖尿病患病率 30.7%，吸烟率 26.3%，平均收缩压 144.7 mmHg（1 级高血压范围）。四格表里 diabetes/smoking 是 0/1 变量，因此摘要按比例解读。</p>
+<div class="sourceCode" id="cb350"><pre class="sourceCode r"><code class="sourceCode r">cat("\nIncident CVD events by time point:\n")</code></pre></div>
+<pre><code>## 
+## Incident CVD events by time point:</code></pre>
+<div class="sourceCode" id="cb352"><pre class="sourceCode r"><code class="sourceCode r">event_rates &lt;- hypertension_data %&gt;%
+  group_by(time) %&gt;%
+  summarise(
+    incident_events = sum(cvd_event),
+    cumulative_incidence = mean(!is.na(event_time) &amp; event_time &lt;= time)
+  )
+print(event_rates)</code></pre></div>
+<pre><code>## # A tibble: 6 × 3
+##    time incident_events cumulative_incidence
+##   &lt;int&gt;           &lt;dbl&gt;                &lt;dbl&gt;
+## 1     0             697                0.697
+## 2     1             154                0.851
+## 3     2              53                0.904
+## 4     3              33                0.937
+## 5     4              23                0.96 
+## 6     5              16                0.976</code></pre>
+<p>输出解读：新发事件在基线期（time = 0）集中爆发了 697 例——这是模拟参数设定的结果（基线血压高、尚未治疗），提示本数据集的「事件率」偏高，解读时应意识到这是教学模拟而非真实人群。累积发生率从 69.7% 一路升到 97.6%，可见事件相当密集。</p>
+<div class="sourceCode" id="cb354"><pre class="sourceCode r"><code class="sourceCode r">cat("\n\n=== MODEL FITTING ===\n\n")</code></pre></div>
+<pre><code>## 
+## 
+## === MODEL FITTING ===</code></pre>
+<div class="sourceCode" id="cb356"><pre class="sourceCode r"><code class="sourceCode r">fit_confounder_models &lt;- function(data) {
+  # 收缩压模型（连续型结局）
+  cat("Fitting SBP model...\n")
+  sbp_model &lt;- lm(sbp ~ sbp_lag + treatment + treatment_lag + 
+                    adherence + adherence_lag + diabetes + smoking + age + time,
+                  data = data[data$time &gt; 0, ])
+  
+  # 依从性模型（有界连续结局用 beta 回归）
+  cat("Fitting adherence model...\n")
+  # beta 回归要求取值在 (0,1) 内，不能触及边界
+  adherence_data &lt;- data[data$time &gt; 0 &amp; data$adherence &gt; 0 &amp; data$adherence &lt; 1, ]
+  adherence_model &lt;- betareg(adherence ~ treatment + sbp_lag + diabetes + time,
+                             data = adherence_data)
+  
+  # 结局模型（新发事件用 logistic 回归）
+  cat("Fitting CVD outcome model...\n")
+  # 仅对新发事件建模（不作为吸收态）
+  outcome_model &lt;- glm(cvd_event ~ sbp + treatment + adherence + 
+                         age + diabetes + smoking + time,
+                       data = data, 
+                       family = binomial())
+  
+  cat("\nModel diagnostics:\n")
+  cat("SBP model R-squared:", round(summary(sbp_model)$r.squared, 3), "\n")
+  cat("Adherence model pseudo R-squared:", round(adherence_model$pseudo.r.squared, 3), "\n")
+  cat("Outcome model AIC:", round(AIC(outcome_model), 1), "\n")
+  
+  list(
+    sbp = sbp_model, 
+    adherence = adherence_model, 
+    outcome = outcome_model,
+    sbp_sigma = sigma(sbp_model)
+  )
+}
+
+models &lt;- fit_confounder_models(hypertension_data)</code></pre></div>
+<pre><code>## Fitting SBP model...
+## Fitting adherence model...
+## Fitting CVD outcome model...
+## 
+## Model diagnostics:
+## SBP model R-squared: 0.885 
+## Adherence model pseudo R-squared: 0.078 
+## Outcome model AIC: 3239.2</code></pre>
+<p>输出解读：三个模型依次拟合完成。收缩压模型 R² = 0.885，拟合优度很高（血压惯性大，滞后项解释力强）；依从性模型的伪 R² 仅 0.078，说明依从性较难预测——这提醒我们反事实模拟中依从性的不确定性会更大；结局模型 AIC = 3239.2，可作为更换模型设定时的比较基准。</p>
+<div class="sourceCode" id="cb358"><pre class="sourceCode r"><code class="sourceCode r">cat("\nSBP Model - Treatment Effect:\n")</code></pre></div>
+<pre><code>## 
+## SBP Model - Treatment Effect:</code></pre>
+<div class="sourceCode" id="cb360"><pre class="sourceCode r"><code class="sourceCode r">print(coef(summary(models$sbp))["treatment", ])</code></pre></div>
+<pre><code>##       Estimate     Std. Error        t value       Pr(&gt;|t|) 
+##  -8.665117e+00   2.525781e-01  -3.430668e+01  8.862651e-232</code></pre>
+<p>输出解读：收缩压模型中当前治疗的系数为 -8.67 mmHg（SE 0.25，p ≈ 1e-232），即在调整了滞后血压、依从性等变量后，治疗时点的血压仍低约 8.7 mmHg。</p>
+<div class="sourceCode" id="cb362"><pre class="sourceCode r"><code class="sourceCode r">cat("\nOutcome Model - Treatment Effect:\n")</code></pre></div>
+<pre><code>## 
+## Outcome Model - Treatment Effect:</code></pre>
+<div class="sourceCode" id="cb364"><pre class="sourceCode r"><code class="sourceCode r">print(coef(summary(models$outcome))["treatment", ])</code></pre></div>
+<pre><code>##      Estimate    Std. Error       z value      Pr(&gt;|z|) 
+## -1.338476e+00  1.351212e-01 -9.905741e+00  3.930469e-23</code></pre>
+<p>输出解读：结局模型中当前处理的 log-OR 为 -1.338（OR ≈ e<sup>-1.338</sup> ≈ 0.26）。但请注意：这个系数是「条件化于当前血压」的关联，不是因果效应——血压是中介变量，直接解读它会低估处理的总效应。这正是需要 g-计算的原因：把模型组合起来模拟反事实轨迹，让处理既通过降血压、也通过其他路径发挥作用。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>g-计算与 IPTW/MSM 是观察性因果推断的三大主力，常被拿来比较。简单地说：<strong>IPTW</strong> 建模「谁接受了处理」，通过加权构造伪人群；<strong>MSM</strong>（边际结构模型）给加权后的数据拟合一个边际（如对数线性）模型，得到风险比等参数化效应；<strong>g-计算</strong> 建模「结局如何发生」，通过标准化直接得到各策略下的边际风险。在同样的识别假设（无未测量混杂、正值性、一致性）下，三者估计的是同一个目标量，大样本下应给出一致答案；差别在于对小样本的表现、对模型误设定的敏感方向、以及能自然呈现的估计对象不同。实践中常把 IPTW 与 g-计算结合成<strong>双稳健（doubly robust）</strong>估计：结局模型或处理模型有一个正确即可。对临床研究者，一个实用的记忆法是：想报告「每人五年风险」这类绝对量、或要模拟动态策略，g-计算最直接；想报告「风险比」且处理很少（权重更稳），IPTW/MSM 可能更顺手。</p>
+</div>
+<h3>11.2.1 拟合 G 公式模型</h3>
+<p><code>gfoRmula</code> 包提供了参数化 G 公式算法的完整实现，内置自助推断与诊断工具。关键难点在于正确设定时变混杂因子与结局的模型：既要捕捉依赖结构，又要避免过拟合。</p>
+<p>模型设定需要仔细斟酌哪些变量能预测混杂因子演化和结局。对收缩压，我们纳入滞后值以刻画持续性，纳入当前治疗与依从性以捕捉治疗效果，并纳入可能影响血压轨迹的基线危险因素。依从性模型捕捉处理强度与感知风险（通过滞后血压）如何影响患者的坚持程度。结局模型同时纳入当前血压与治疗，从而允许处理的效应既通过降血压、也可能通过其他路径发挥作用。</p>
+<div class="sourceCode" id="cb366"><pre class="sourceCode r"><code class="sourceCode r">simulate_counterfactual_mc &lt;- function(data, models, treatment_strategy, 
+                                       n_simulations = 500, verbose = TRUE) {
+  
+  baseline_data &lt;- data[data$time == 0, ]
+  n_subjects &lt;- nrow(baseline_data)
+  
+  # 跨模拟存储结果
+  all_risks &lt;- matrix(NA, nrow = n_simulations, ncol = 6)
+  all_cumulative_incidence &lt;- numeric(n_simulations)
+  
+  for (sim in 1:n_simulations) {
+    if (verbose &amp;&amp; sim %% 100 == 0) cat("  Simulation", sim, "of", n_simulations, "\n")
+    
+    sim_data &lt;- baseline_data
+    sim_data$treatment &lt;- treatment_strategy(sim_data, 0)
+    sim_data$cvd_event_sim &lt;- 0
+    sim_data$event_occurred &lt;- FALSE
+    
+    for (t in 1:5) {
+      prev_data &lt;- sim_data[sim_data$time == t - 1, ]
+      
+      # 为时间 t 创建新数据
+      new_data &lt;- prev_data
+      new_data$time &lt;- t
+      new_data$treatment_lag &lt;- prev_data$treatment
+      new_data$sbp_lag &lt;- prev_data$sbp
+      new_data$adherence_lag &lt;- prev_data$adherence
+      
+      # 按策略分配处理
+      new_data$treatment &lt;- treatment_strategy(new_data, t)
+      
+      # 模拟依从性
+      adherence_pred &lt;- predict(models$adherence, newdata = new_data, type = "response")
+      adherence_noise &lt;- rnorm(nrow(new_data), 0, 0.1)
+      new_data$adherence &lt;- pmin(0.99, pmax(0.01, adherence_pred + adherence_noise))
+      
+      # 模拟收缩压
+      sbp_pred &lt;- predict(models$sbp, newdata = new_data)
+      new_data$sbp &lt;- sbp_pred + rnorm(nrow(new_data), 0, models$sbp_sigma)
+      new_data$sbp &lt;- pmin(200, pmax(90, new_data$sbp))
+      
+      # 模拟心血管事件（仅针对尚未发生事件的个体）
+      cvd_prob &lt;- predict(models$outcome, newdata = new_data, type = "response")
+      new_event &lt;- rbinom(nrow(new_data), 1, cvd_prob)
+      
+      # 仅计入新发事件
+      new_data$cvd_event_sim &lt;- ifelse(!prev_data$event_occurred, new_event, 0)
+      new_data$event_occurred &lt;- prev_data$event_occurred | (new_event == 1)
+      
+      sim_data &lt;- rbind(sim_data, new_data)
+    }
+    
+    # 计算本次模拟中各时间点的风险
+    for (t in 0:5) {
+      all_risks[sim, t + 1] &lt;- mean(sim_data[sim_data$time == t, "event_occurred"])
+    }
+    
+    # 随访期末的累积发生率
+    all_cumulative_incidence[sim] &lt;- mean(sim_data[sim_data$time == 5, "event_occurred"])
+  }
+  
+  list(
+    mean_risk_trajectory = colMeans(all_risks),
+    risk_trajectory_se = apply(all_risks, 2, sd),
+    cumulative_incidence = mean(all_cumulative_incidence),
+    cumulative_incidence_se = sd(all_cumulative_incidence),
+    all_cumulative_incidence = all_cumulative_incidence
+  )
+}
+
+# 定义治疗策略
+strategies &lt;- list(
+  never_treat = function(data, time) rep(0, nrow(data)),
+  always_treat = function(data, time) rep(1, nrow(data)),
+  delayed_treat = function(data, time) ifelse(time &gt;= 2, 1, 0),
+  threshold_strategy = function(data, time) {
+    if (time == 0) return(rep(0, nrow(data)))
+    ifelse(data$sbp &gt; 140, 1, 0)
+  }
+)
+
+# 对每种策略运行模拟
+cat("Running Monte Carlo simulations (500 iterations per strategy)...\n\n")</code></pre></div>
+<pre><code>## Running Monte Carlo simulations (500 iterations per strategy)...</code></pre>
+<p>输出解读：反事实模拟器就绪。它的工作方式是：以 1000 名患者的真实基线为起点，每一步按策略函数指定处理（如「始终治疗」或「血压 &gt; 140 才治疗」），再用已拟合的模型依次模拟依从性、血压与事件，如此向前滚动 5 期。重复 500 次是为了刻画蒙特卡洛抽样带来的变异。四种策略分别是：始终不治疗（never_treat）、始终治疗（always_treat）、从第 2 期起延迟治疗（delayed_treat）、以及按血压阈值 140 触发的动态治疗（threshold_strategy）。</p>
+<div class="sourceCode" id="cb368"><pre class="sourceCode r"><code class="sourceCode r">results &lt;- list()
+
+for (strategy_name in names(strategies)) {
+  cat("Strategy:", strategy_name, "\n")
+  results[[strategy_name]] &lt;- simulate_counterfactual_mc(
+    hypertension_data, 
+    models, 
+    strategies[[strategy_name]],
+    n_simulations = 500,
+    verbose = FALSE
+  )
+  cat("  Cumulative incidence at 5 years:", 
+      round(results[[strategy_name]]$cumulative_incidence * 100, 2), "%",
+      " (SE:", round(results[[strategy_name]]$cumulative_incidence_se * 100, 2), "%)\n\n")
+}</code></pre></div>
+<pre><code>## Strategy: never_treat 
+##   Cumulative incidence at 5 years: 63.48 %  (SE: 1.65 %)
+## 
+## Strategy: always_treat 
+##   Cumulative incidence at 5 years: 24.65 %  (SE: 1.41 %)
+## 
+## Strategy: delayed_treat 
+##   Cumulative incidence at 5 years: 49.19 %  (SE: 1.55 %)
+## 
+## Strategy: threshold_strategy 
+##   Cumulative incidence at 5 years: 43.62 %  (SE: 1.55 %)</code></pre>
+<p>输出解读：四种策略下的五年累积发生率依次为——不治疗 63.48%、始终治疗 24.65%、延迟治疗 49.19%、阈值治疗 43.62%。排序完全符合直觉：越早、越持续地治疗，事件越少；阈值策略介于两者之间（毕竟只治疗血压超标者）。这里的 SE 仅反映蒙特卡洛模拟的变异，还不是完整的统计不确定性。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>这个案例值得从生存分析的角度挑出两点讨论。其一，模拟把心血管事件当作「吸收态」处理（发生后不再产生新事件，<code>event_occurred</code> 一旦为真便锁定），这符合临床现实；但结局模型本身是逐期的 logistic 回归，累积发生率由各期风险拼接而成，而不是用 Kaplan–Meier 或 Cox 模型直接对事件时间建模。在真实数据中，若存在竞争风险（如非心血管死亡）或删失，逐期 logistic 会低估事件率、且无法给出风险比的时间解释——规范的纵向生存分析需要把每期的「存活 × 未删失」状态显式纳入 g-计算（Robins 的纵向生存 G 公式），或先做 IPTW 再加权 Cox 模型。其二，本模拟中基线期事件率高达 69.7%，在真实世界里应对应「极短随访窗口内的事件」，读者不必对绝对值较真，重点是理解方法流程。</p>
+</div>
+<div class="sourceCode" id="cb370"><pre class="sourceCode r"><code class="sourceCode r"># 计算风险差与风险比（含自助置信区间）的函数
+calculate_effect &lt;- function(results, reference, comparator) {
+  ref_samples &lt;- results[[reference]]$all_cumulative_incidence
+  comp_samples &lt;- results[[comparator]]$all_cumulative_incidence
+  
+  risk_diff &lt;- ref_samples - comp_samples
+  risk_ratio &lt;- ref_samples / comp_samples
+  
+  list(
+    risk_diff_mean = mean(risk_diff),
+    risk_diff_ci = quantile(risk_diff, c(0.025, 0.975)),
+    risk_ratio_mean = mean(risk_ratio),
+    risk_ratio_ci = quantile(risk_ratio, c(0.025, 0.975))
+  )
+}
+
+# 比较各策略
+comparisons &lt;- list(
+  c("never_treat", "always_treat"),
+  c("never_treat", "threshold_strategy"),
+  c("always_treat", "threshold_strategy")
+)
+
+effect_summary &lt;- data.frame()
+
+for (comp in comparisons) {
+  effect &lt;- calculate_effect(results, comp[1], comp[2])
+  
+  cat(sprintf("\n%s vs %s:\n", comp[1], comp[2]))
+  cat(sprintf("  Risk Difference: %.2f%% (95%% CI: %.2f%% to %.2f%%)\n",
+              effect$risk_diff_mean * 100,
+              effect$risk_diff_ci[1] * 100,
+              effect$risk_diff_ci[2] * 100))
+  cat(sprintf("  Risk Ratio: %.2f (95%% CI: %.2f to %.2f)\n",
+              effect$risk_ratio_mean,
+              effect$risk_ratio_ci[1],
+              effect$risk_ratio_ci[2]))
+  
+  effect_summary &lt;- rbind(effect_summary, data.frame(
+    comparison = paste(comp[1], "vs", comp[2]),
+    risk_diff = effect$risk_diff_mean * 100,
+    rd_lower = effect$risk_diff_ci[1] * 100,
+    rd_upper = effect$risk_diff_ci[2] * 100,
+    risk_ratio = effect$risk_ratio_mean,
+    rr_lower = effect$risk_ratio_ci[1],
+    rr_upper = effect$risk_ratio_ci[2]
+  ))
+}</code></pre></div>
+<pre><code>## 
+## never_treat vs always_treat:
+##   Risk Difference: 38.82% (95% CI: 35.05% to 42.95%)
+##   Risk Ratio: 2.58 (95% CI: 2.31 to 2.94)
+## 
+## never_treat vs threshold_strategy:
+##   Risk Difference: 19.85% (95% CI: 15.59% to 24.46%)
+##   Risk Ratio: 1.46 (95% CI: 1.34 to 1.59)
+## 
+## always_treat vs threshold_strategy:
+##   Risk Difference: -18.97% (95% CI: -22.95% to -14.95%)
+##   Risk Ratio: 0.57 (95% CI: 0.49 to 0.64)</code></pre>
+<p>输出解读：始终治疗 vs 不治疗，风险差为 38.82 个百分点（95% CI: 35.05–42.95），即强化治疗使五年事件风险下降约 39 个百分点；风险比 2.58 的含义是「不治疗的风险是始终治疗的 2.58 倍」。阈值策略 vs 不治疗，风险差 19.85 个百分点。始终治疗 vs 阈值策略，风险差 -18.97 个百分点（负号表示前者更低），风险比 0.57。所有置信区间都远离无效值，效应极其显著——再次提醒，这是模拟数据的「理想世界」。</p>
+<h3>11.2.2 结果解读与模型诊断</h3>
+<p>G 公式估计通过比较不同策略下的反事实风险，揭示持续治疗策略的因果效应。关键估计量包括：每种治疗策略下的风险（若所有患者都遵循该策略，五年内发生心血管事件的概率）、量化强化治疗绝对风险下降的风险差，以及提供治疗获益相对尺度的风险比。</p>
+<p>除点估计外，我们还必须通过诊断程序评估模型的充分性。<code>gfoRmula</code> 包提供了若干工具，用于评估参数模型是否充分刻画了数据生成过程。每个协变量模型的拟合优度统计量提示我们是否正确设定了函数形式、是否纳入了相关预测变量。平衡性检查则比较「自然病程」下模拟的协变量分布与观测分布——巨大差异意味着模型误设定。</p>
+<p>「自然病程」下观测与模拟血压轨迹的良好吻合，为协变量模型充分捕捉时变混杂因子过程提供了证据。若出现实质性偏离，则提示需要修改函数形式、加入交互项或纳入额外预测变量。策略特异风险周围的置信区间反映自助不确定性，同时涵盖了抽样波动与拟合模型的估计误差。</p>
+<div class="sourceCode" id="cb372"><pre class="sourceCode r"><code class="sourceCode r"># 图 1：带不确定性的累积发生率轨迹
+risk_trajectories &lt;- do.call(rbind, lapply(names(results), function(strategy) {
+  data.frame(
+    time = 0:5,
+    mean_risk = results[[strategy]]$mean_risk_trajectory,
+    lower = results[[strategy]]$mean_risk_trajectory - 
+      1.96 * results[[strategy]]$risk_trajectory_se,
+    upper = results[[strategy]]$mean_risk_trajectory + 
+      1.96 * results[[strategy]]$risk_trajectory_se,
+    strategy = strategy
+  )
+}))
+
+p1 &lt;- ggplot(risk_trajectories, aes(x = time, y = mean_risk * 100, 
+                                    color = strategy, fill = strategy)) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(aes(ymin = lower * 100, ymax = upper * 100), 
+              alpha = 0.2, color = NA) +
+  labs(
+    title = "Cumulative CVD Incidence Under Different Treatment Strategies",
+    subtitle = "Mean ± 95% CI from 500 Monte Carlo simulations",
+    x = "Time (years)",
+    y = "Cumulative CVD Incidence (%)",
+    color = "Strategy",
+    fill = "Strategy"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+print(p1)</code></pre></div>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-36-1.png" width="672" alt="四种治疗策略下累积心血管发生率随时间变化的轨迹图，附 95% 置信带" /></p>
+<p>输出解读：四条累积发生率曲线全程分离，始终治疗组始终最低；阴影为 ±1.96 × SE 的蒙特卡洛置信带，带宽约 ±3 个百分点，策略间的差距远大于带宽。</p>
+<div class="sourceCode" id="cb373"><pre class="sourceCode r"><code class="sourceCode r"># 图 2：带置信区间的风险差
+p2 &lt;- ggplot(effect_summary, aes(x = comparison, y = risk_diff)) +
+  geom_col(fill = "steelblue", alpha = 0.7, width = 0.6) +
+  geom_errorbar(aes(ymin = rd_lower, ymax = rd_upper), 
+                width = 0.2, linewidth = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  geom_text(aes(label = sprintf("%.1f%%", risk_diff)), 
+            vjust = -0.5, size = 4, fontface = "bold") +
+  labs(
+    title = "Treatment Effects: Absolute Risk Reduction",
+    subtitle = "Risk difference with 95% confidence intervals",
+    x = "",
+    y = "Risk Difference (percentage points)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1)) +
+  coord_cartesian(ylim = c(min(effect_summary$rd_lower) * 0.8, 
+                           max(effect_summary$rd_upper) * 1.2))
+
+print(p2)</code></pre></div>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-36-2.png" width="672" alt="三种策略比较的绝对风险差柱状图，附 95% 误差棒" /></p>
+<p>输出解读：柱高即风险差（percentage points），误差棒为 95% CI，红色虚线为零线。三根柱子全部远离零线，方向与符号与文字报告一致。</p>
+<div class="sourceCode" id="cb374"><pre class="sourceCode r"><code class="sourceCode r"># 图 3：带置信区间的风险比
+p3 &lt;- ggplot(effect_summary, aes(x = comparison, y = risk_ratio)) +
+  geom_point(size = 4, color = "darkred") +
+  geom_errorbar(aes(ymin = rr_lower, ymax = rr_upper), 
+                width = 0.2, linewidth = 0.8, color = "darkred") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black") +
+  labs(
+    title = "Treatment Effects: Relative Risk",
+    subtitle = "Risk ratio with 95% confidence intervals",
+    x = "",
+    y = "Risk Ratio"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1)) +
+  coord_cartesian(ylim = c(0, max(effect_summary$rr_upper) * 1.1))
+
+print(p3)</code></pre></div>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-36-3.png" width="672" alt="三种策略比较的风险比点图，附 95% 误差棒与无效线" /></p>
+<p>输出解读：风险比全部大于 1（黑色虚线为无效线 1.0），意味着左侧参照策略的风险更高。绝对量与相对量传达同一结论，但临床沟通中建议两者同时报告：风险差便于计算需治人数（NNT），风险比便于跨研究比较。</p>
+<div class="sourceCode" id="cb375"><pre class="sourceCode r"><code class="sourceCode r">best_strategy &lt;- names(results)[which.min(sapply(results, function(x) x$cumulative_incidence))]
+cat(sprintf("- Best performing strategy: %s\n", best_strategy))</code></pre></div>
+<pre><code>## - Best performing strategy: always_treat</code></pre>
+<div class="sourceCode" id="cb377"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf("- 5-year CVD risk: %.1f%% (95%% CI: %.1f%%-%.1f%%)\n",
+            results[[best_strategy]]$cumulative_incidence * 100,
+            quantile(results[[best_strategy]]$all_cumulative_incidence, 0.025) * 100,
+            quantile(results[[best_strategy]]$all_cumulative_incidence, 0.975) * 100))</code></pre></div>
+<pre><code>## - 5-year CVD risk: 24.7% (95% CI: 21.9%-27.3%)</code></pre>
+<p>输出解读：程序自动挑出累积发生率最低的策略——始终治疗，五年心血管风险 24.7%（95% CI: 21.9%–27.3%）。注意在本模拟中「始终治疗」胜出，部分是因为模拟的治疗效应恒定且无副作用项；真实临床中治疗有不良反应与成本，「最优策略」需要综合权衡，这正是动态策略评估要回答的更宏大问题。</p>
+<h2>11.3 实际考量与局限性</h2>
+<p>g-计算真正的威力，展现在估计那些随时间适应患者状态的动态治疗策略（dynamic treatment regime）效应之时——它模拟的正是临床真实决策：是否强化治疗取决于患者不断演变的特征。静态策略在基线一次性指定处理，而动态策略把处理规则设定为观测历史的函数。</p>
+<p>动态策略能回答一系列临床相关问题：按血压阈值治疗是否优于全员治疗？不同患者亚组应以什么阈值触发强化？实施基于阈值的治疗规则需要多密的监测？G 公式通过模拟不同决策规则下血压如何演化并计算相应的事件率，自然而然地容纳了这类问题。</p>
+<p>成功实施 g-计算需要注意若干决定其能否给出有效因果估计的实际问题。模型设定是最关键的挑战，因为方法的有效性依赖于正确处理、混杂与结局之间的关系。与倾向得分方法对结局模型误设定具有一定稳健性不同，g-计算要求结局模型与协变量模型都足够准确。不过，这一要求并没有看上去那么苛刻——模型无需完美设定，但必须捕捉变量间的基本关系。通常，纳入相关交互项、非线性项与滞后变量就足以获得合格的表现。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>两条实务建议送给准备上手的研究者。第一，<strong>正值性要在数据里先检查</strong>：如果某个协变量组合下所有人都接受了同一处理（例如「高龄 + 多种合并症 + 低血压」的患者从来不会被强化治疗），该格子里就没有反事实信息，g-计算只能做外推；此时应合并稀疏层、截断极端权重或限制目标人群。第二，<strong>对未测量杂总不能止步于「我们假设没有」</strong>：可以报告 E-value（使结论翻转所需的未测量混杂的最小关联强度）、或运行阴性对照结局/阴性对照暴露分析。原书提到「敏感性分析提供背景」但未展开，E-value 计算简单（一个公式）、视觉直观，很适合作为观察性因果论文的标准附录。</p>
+</div>
+<p>样本量问题在纵向场景中格外重要，因为我们必须为每个时变协变量单独拟合模型。小样本可能给不出稳定估计，尤其在处理模式稀疏或协变量分布随时间大幅变化时。一条粗略的经验法则：纵向 g-计算至少需要数百名随访完整的受试者才能提供可靠估计，尽管确切要求取决于数据生成过程的复杂程度与时间点数量。</p>
+<p>无未测量混杂这一根本假设无法被经验验证，它需要关于数据生成过程的实质知识。在观察性高血压研究中，患者偏好、医生的诊疗风格、健康行为等未测量因素可能同时影响治疗决策与心血管结局。考察结果在不同程度未测量混杂下如何变化的敏感性分析，能为因果结论提供重要背景，但 g-计算本身并不能解决未测量变量带来的混杂。</p>
+<p>在时间点与协变量众多的纵向场景中，自助推断的计算开销可能相当可观。每一轮自助迭代都需要重新拟合全部协变量模型与结局模型，然后在每种治疗策略下模拟所有受试者的反事实轨迹。并行计算能大幅缩短时间，但对于配有足量自助样本的复杂分析，研究者仍应预期以「小时」而非「分钟」计的耗时。</p>
+<p>模型相容性是实践中另一个常被忽视的问题。当协变量模型与结局模型对数据生成过程作出互不相容的假设时，即使单个模型看起来设定良好，G 公式估计仍可能有偏。例如，若血压模型假设时间趋势是线性的，而结局模型纳入非线性的时间效应，模拟出的反事实轨迹就可能无法准确反映结局在不同治疗策略下的演化方式。确保模型间的一致性，需要对函数形式与所纳入协变量仔细斟酌。</p>
+<p>近期方法学进展把 g-计算扩展到日益复杂的场景，拓展了它的实用版图。双稳健（doubly robust）估计把 g-计算与逆概率加权（inverse probability weighting, IPW）相结合：只要结局模型或处理模型之一设定正确，就能给出一致估计。这一方法提供了纯基于模型的 g-计算所不具备的误设定保护，代价是计算复杂度上升，且置信区间可能更宽。</p>
+<p>机器学习的 g-计算用随机森林、梯度提升、神经网络等灵活算法取代参数模型。这些方法无需显式设定即可捕捉复杂的非线性关系与交互，当真实数据生成过程与参数假设相去甚远时，表现可能更好。但机器学习的 g-计算需要认真对待过拟合，在中等样本量下估计的稳定性可能下降，可解释性也不及参数方法。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>把这一节放进更大的方法学版图：当代实践常把 g-计算与 SuperLearner 集成（把多个候选模型堆叠成「超级学习器」自动挑权重）结合，用数据而非研究者先验来决定模型形式；若同时引入交叉拟合（cross-fitting）与 Neyman 正交性，就得到「双重机器学习（DML）」式的估计，在扰动函数可微、样本量适中时兼得稳健与高效。TMLE 则可视为 g-计算的「迭代加权升级版」。对这些方法，一个中肯的提醒是：它们放宽的是「函数形式误设定」，而非「未测量混杂」——识别假设永远无法靠算法补救。</p>
+</div>
+<p>靶向极大似然估计（targeted maximum likelihood estimation, TMLE）通过同时利用结局模型与处理模型的信息，提供了标准 g-计算之外的一种更高效选择。该方法用精巧的加权方案更新初始的基于模型的估计，从而降低偏倚、提高精度。在对效率要求极高的场景中，TMLE 在流行病学与生物统计学中日益受到青睐，尽管其实现复杂度高于标准 g-计算。</p>
+<p>中介分析是 g-计算的天然应用场景，因为该方法对中间变量的显式建模使总效应可被分解为直接通路与间接通路。以高血压管理为例，我们可以把治疗效应分解为不经由降压介导的直接效应，与通过血压控制起作用的间接效应。这类分解为「治疗如何产生效应」提供了机制性洞见，有助于开发更有效的干预。</p>
+<h2>11.4 结论：把 g-计算融入实践</h2>
+<p>g-计算为从观察性数据开展因果推断提供了一个强大而灵活的框架，在处理与混杂时变、传统方法举步维艰的纵向场景中尤为出色。该方法对数据生成过程的显式建模，使其能够估计复杂治疗策略下的效应，同时给出关于治疗如何随时间影响结局的、可解释的洞见。</p>
+<p>我们的高血压案例演示了使用 <code>gfoRmula</code> 包的实践流程：如何设定合适的模型、模拟反事实轨迹、并以临床上有意义的方式解读结果。比较静态与动态治疗策略的能力，使我们能够直接回答这样的临床决策问题：对风险画像不断演变的患者，何时治疗、治疗到什么强度。</p>
+<p>成功的应用需要仔细对待模型设定、充足的样本量，以及通过诊断程序验证建模假设。当研究者对数据背后的因果结构拥有扎实的领域知识、并能设定出捕捉处理—混杂—结局基本关系的模型时，该方法的表现最佳。尽管 g-计算比某些替代方法需要更多的前期建模投入，它会以「符合临床实际决策方式的治疗策略下的因果效应估计」回报这份投入。</p>
+<p>g-计算与现代计算工具、机器学习方法的结合，正在不断拓展复杂纵向数据因果推断的边界。随着医疗卫生越来越依赖观察性电子病历与登记数据来支持治疗决策，像 g-计算这样能从这类数据中提炼有效因果结论的方法，正成为循证医学与精准医疗的必备工具。</p>
+
+  </div>
+  <div class="pager">
+    <a class="prev" href="ch10-tmle.html">← 上一章：面向医疗稳健因果推断的靶向极大似然估计</a>
+    <a class="next " href="ch12-sem.html">下一章：医疗研究中的结构方程模型：解析复杂因果通路 →</a>
+  </div>
+  <div class="foot">本页为《Causal Inference in R》（Kamran Afzali，2026-01-17）的个人学习用途<strong>非官方中文译本</strong>，仅供学习交流，引用请以<a href="https://github.com/Kamran-Afzali/Bookdown_Causality">英文原文</a>为准。「背景与解释」框为译者补充，非原文内容。<br>原文：<a href="https://kamran-afzali.github.io/Bookdown_Causality/g-computation-for-causal-inference.html">https://kamran-afzali.github.io/Bookdown_Causality/g-computation-for-causal-inference.html</a> · 原书仓库：<a href="https://github.com/Kamran-Afzali/Bookdown_Causality">Kamran-Afzali/Bookdown_Causality</a> · 返回 <a href="../index.html">全书目录</a></div>
+</div>
+</body>
+</html>
