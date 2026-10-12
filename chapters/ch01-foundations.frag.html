@@ -1,0 +1,229 @@
+<h2><span class="header-section-number">1.1</span> 引言</h2>
+<p>理解因果关系是科学中最持久、最根本的挑战之一。从公共卫生、经济学到教育、神经科学和人工智能，各个学科的研究者越来越多地面临这样的任务：不仅要识别数据中的模式，还要揭示产生这些模式的机制。传统统计分析擅长量化关联，而科学探究往往怀有更深层的志向——推断<strong>因果关系</strong>，即判断在特定干预、政策或系统变动之下会发生什么。相关与因果之间的区别不仅仅是一个方法论上的细微差别，它划定了描述与解释、预测与控制之间的边界。</p>
+<p>本文是「因果统计分析基础」系列文章中的第一篇，对最常用的因果效应估计技术进行全景式概述。这些技术各自植根于不同的理论框架与操作假设，涵盖从被视为认识论黄金标准的随机对照试验（RCT），到为应对现实世界数据的局限性而发展出的大量准实验方法与基于模型的方法。在实践中，研究者常常不得不在这样的数据环境中摸索：随机化不可行、处理选择是内生的、时间或结构上的混杂无处不在。这正是现代因果推断技术大显身手之处——它不仅用于估计效应，也用于审视这些估计的有效性。</p>
+<p>这项事业的核心在于<strong>可识别性（identifiability）</strong>与<strong>假设</strong>之间的张力。每一种因果方法都依赖一组假设——关于数据如何生成、变量如何关联、哪些偏倚来源被控制或被忽略。有些方法通过设计强调稳健性（例如双重差分、断点回归或工具变量），另一些则试图显式地对数据生成过程建模，借鉴结构建模、反事实推断或机器学习。每种方法在条件合适时都威力强大，而在不加批判地套用时则会误导。这凸显了本系列的核心理念：<strong>因果推断不存在放之四海而皆准的「最佳」方法</strong>。每种技术的适用性取决于科学问题、数据结构以及底层假设的合理性。</p>
+<p>为引导实践者穿越这片复杂地形，我们先给出一张对比总表，概述每种技术的假设、优势、局限与实现工具。这张表格不只是一份目录——它是深入研讨的脚手架。本系列后续文章将逐一深入探讨每种方法，既介绍理论基础，也展示使用 R 与 Python 开源统计包的实践工作流。这些文章将包含可视化、诊断、敏感性分析，以及来自公共卫生、教育和政策评估领域的真实案例研究。</p>
+<p>因果分析既是艺术也是科学：它要求严谨的推理、领域知识和透明的方法论。随着循证决策的需求日益增长——尤其是在大数据与算法治理的时代——因果推断为「从数据到行动」提供了一个有原则的框架。本系列旨在帮助读者以严谨、批判且富有创造力的方式处理因果问题。</p>
+
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>本书对标的正是流行病学因果推断的主流训练体系。医学读者如果修过 VanderWeele、Hernán 或 Robins 的课程，会发现书中反复出现的「可交换性 / 可忽略性」「正值性」「一致性」三大假设，与 Hernán &amp; Robins《Causal Inference: What If》中的表述完全一致。可以把这本书看作那本教材的「R 实现版」：概念相同，工具从纸笔推导换成了 <code>tmle</code>、<code>grf</code>、<code>DoubleML</code> 等 R 包。区别在于：流行病学教材通常以二值处理、单时点数据为默认场景，而本书覆盖了 IV、DiD、RDD 等计量经济学设计，这些在卫生政策评估（如医保支付改革、医院等级评审）中同样常见。</p>
+</div>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>「可识别性」是医学读者容易一带而过、实则至关重要的概念：它回答的问题是——在已观测数据的分布下，因果效应 <em>原则上</em>能否被唯一确定。RCT 中随机化本身就让 ATE 可识别（无需任何模型假设）；观察性研究中，可识别性依赖「无未测混杂 + 正值性」等无法仅从数据验证的假设。这也是为什么本表每一行都有一列「关键假设」——选择方法之前，先问自己：我的数据和研究问题是否满足这些假设。临床研究中把可识别性直接称为「因果效应能否被（无偏）估计的前提条件」，两者是一回事。</p>
+</div>
+
+<h2><span class="header-section-number">1.2</span> 总表：因果统计分析技术一览</h2>
+<table style="width:100%;">
+<colgroup>
+<col width="16%" />
+<col width="16%" />
+<col width="16%" />
+<col width="16%" />
+<col width="16%" />
+<col width="16%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>技术</th>
+<th>关键假设</th>
+<th>适用场景</th>
+<th>优势</th>
+<th>局限</th>
+<th>工具/包</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>随机对照试验（RCT）</td>
+<td>随机分配保证可交换性</td>
+<td>临床试验、A/B 测试</td>
+<td>消除混杂</td>
+<td>往往不可行或不符合伦理</td>
+<td><code>randomizr</code>（R）、<code>DoWhy</code>（Py）</td>
+</tr>
+<tr class="even">
+<td>回归调整</td>
+<td>无未测混杂、模型设定正确</td>
+<td>政策、健康结局</td>
+<td>简单、应用广泛</td>
+<td>对遗漏变量和模型误设敏感</td>
+<td><code>lm()</code>、<code>glm()</code>（R），<code>statsmodels</code>、<code>sklearn</code>（Py）</td>
+</tr>
+<tr class="odd">
+<td>倾向得分匹配（PSM）</td>
+<td>给定观测协变量后条件独立</td>
+<td>观察性研究</td>
+<td>平衡协变量、直观</td>
+<td>对未测混杂敏感、重叠度差</td>
+<td><code>MatchIt</code>、<code>twang</code>（R），<code>DoWhy</code>、<code>causalml</code>（Py）</td>
+</tr>
+<tr class="even">
+<td>逆概率加权（IPW）</td>
+<td>处理模型正确、正值性</td>
+<td>纵向数据</td>
+<td>可处理时变混杂</td>
+<td>可能产生不稳定权重</td>
+<td><code>ipw</code>、<code>survey</code>（R），<code>zEpid</code>（Py）</td>
+</tr>
+<tr class="odd">
+<td>双重差分（DiD）</td>
+<td>平行趋势</td>
+<td>政策改革、自然实验</td>
+<td>控制未观测的时不变混杂</td>
+<td>趋势背离时脆弱</td>
+<td><code>fixest</code>、<code>did</code>（R），<code>linearmodels</code>（Py）</td>
+</tr>
+<tr class="even">
+<td>工具变量（IV）</td>
+<td>相关性、排他性约束</td>
+<td>内生性校正</td>
+<td>应对未测混杂</td>
+<td>找到有效工具变量很难</td>
+<td><code>ivreg</code>、<code>AER</code>（R），<code>linearmodels.iv</code>（Py）</td>
+</tr>
+<tr class="odd">
+<td>断点回归（RDD）</td>
+<td>清晰断点、局部随机化</td>
+<td>教育、政策阈值</td>
+<td>识别策略透明</td>
+<td>仅限断点附近的局部效应</td>
+<td><code>rdrobust</code>、<code>rddtools</code>（R），<code>rdd</code>、<code>statsmodels</code>（Py）</td>
+</tr>
+<tr class="even">
+<td>因果森林</td>
+<td>无混杂性、存在异质性</td>
+<td>精准医疗、人群分层</td>
+<td>刻画处理异质性</td>
+<td>需要大数据、有未测混杂风险</td>
+<td><code>grf</code>、<code>causalTree</code>（R），<code>econml</code>、<code>causalml</code>（Py）</td>
+</tr>
+<tr class="odd">
+<td>S-Learner、T-Learner、X-Learner</td>
+<td>可忽略性、重叠性、结局模型一致</td>
+<td>估计异质性处理效应（CATE）</td>
+<td>把监督式机器学习用于因果推断、灵活</td>
+<td>S-learner 可能抹平异质性；T-learner 在组间不均衡时低效；X-learner 更复杂</td>
+<td><code>metalearners</code>（R），<code>econml</code>、<code>causalml</code>（Py）</td>
+</tr>
+<tr class="even">
+<td>贝叶斯结构时间序列（BSTS）</td>
+<td>干预后无未测混杂</td>
+<td>时间序列干预</td>
+<td>处理复杂时间趋势</td>
+<td>对模型/先验敏感</td>
+<td><code>CausalImpact</code>、<code>bsts</code>（R），<code>tfcausalimpact</code>（Py）</td>
+</tr>
+<tr class="odd">
+<td>靶向极大似然估计（TMLE）</td>
+<td>双稳健性</td>
+<td>流行病学、观察性数据</td>
+<td>稳健、可整合机器学习</td>
+<td>计算密集</td>
+<td><code>tmle</code>、<code>ltmle</code>（R），<code>zepid</code>（Py）</td>
+</tr>
+<tr class="even">
+<td>G-计算</td>
+<td>无未测混杂、模型设定正确</td>
+<td>中介分析、边际效应</td>
+<td>灵活、基于反事实</td>
+<td>依赖模型</td>
+<td><code>gfoRmula</code>、<code>ltmle</code>（R），<code>zepid</code>（Py）</td>
+</tr>
+<tr class="odd">
+<td>结构方程模型（SEM）</td>
+<td>结构正确、无未测混杂</td>
+<td>潜变量、中介分析</td>
+<td>建模复杂关系</td>
+<td>需要很强的假设</td>
+<td><code>lavaan</code>（R），<code>semopy</code>、<code>pysem</code>（Py）</td>
+</tr>
+<tr class="even">
+<td>有向无环图（DAG）</td>
+<td>因果充分性、知识准确</td>
+<td>研究设计、混杂控制</td>
+<td>澄清假设</td>
+<td>不是估计方法</td>
+<td><code>dagitty</code>、<code>ggdag</code>（R），<code>causalgraphicalmodels</code>（Py）</td>
+</tr>
+<tr class="odd">
+<td>双重机器学习（DML）框架</td>
+<td>条件可忽略性、扰动函数估计一致</td>
+<td>高维观察性研究</td>
+<td>对模型误设稳健、可处理高维混杂</td>
+<td>需要大数据、假设无未测混杂</td>
+<td><code>DoubleML</code>（R），<code>econml</code>、<code>causalml</code>（Py）</td>
+</tr>
+</tbody>
+</table>
+
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>从上到下扫一遍这张表，就得到了本书的「临床适用地图」：RCT 仍是疗效验证的金标准，但入排标准苛刻的结果外推性有限；<strong>回归调整与 PSM</strong> 是临床医生最熟悉的观察性研究工具，适合单时点、协变量不多的常见病研究，但对模型形式敏感；<strong>IPW 与 g-计算</strong> 是纵向研究（如队列随访中处理随时间调整）的主力；<strong>DiD/RDD/IV</strong> 更适合卫生政策评估（医保目录调整、按病种付费改革）——它们不假设你能测到所有混杂，而是用研究设计逼近实验；<strong>因果森林与 meta-learner</strong> 服务于精准医疗中的个体化治疗选择；<strong>TMLE/DML</strong> 则面向高维 EHR 数据。选方法前先画 DAG、再看这张表，是本书推荐的标准动作。</p>
+</div>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>表中「无未测混杂」几乎出现在每一行的假设里，值得单独说明：它无法从数据内部检验，只能靠领域知识论证（如 DAG）或做敏感性分析（如 E-value）。医学读者常见的误区是把「校正了很多协变量」等同于「无未测混杂」——协变量再多，只要漏掉了同时影响治疗选择和结局的因素（如疾病严重度、患者依从性、医生偏好），结论仍可能有偏。表中的 IV、DiD、RDD 之所以在卫生政策评估中流行，正是因为它们各自用不同的设计逻辑绕开或减轻了这一难题。</p>
+</div>
+
+<h2><span class="header-section-number">1.3</span> 方法论深入与实践指导</h2>
+<ul>
+<li><p><strong>随机对照试验（RCT）</strong>　RCT 是因果推断的黄金标准。随机分配中和了混杂，保证内部效度。然而实践、伦理或经费上的限制常常使其不可行。在可行的情况下，它们给出最可信的因果估计。</p></li>
+<li><p><strong>回归调整</strong>　该方法把结局建模为处理与协变量的函数。它易于实现，但假设无未测混杂且模型设定正确。检查协变量平衡并进行稳健性检验是必不可少的。</p></li>
+<li><p><strong>倾向得分匹配（PSM）</strong>　PSM 试图通过匹配处理概率相近的个体来模仿随机化。它能很好地平衡协变量，但在未测混杂存在时失效。平衡诊断图（balance plot）等工具至关重要。</p></li>
+<li><p><strong>逆概率加权（IPW）</strong>　IPW 对样本重新加权以模拟随机分配。它能处理时变混杂，但可能产生不稳定权重，需要进行截尾（trimming）或稳定化（stabilization）处理。它对纵向数据和面板数据尤其强大。</p></li>
+<li><p><strong>双重差分（DiD）</strong>　DiD 比较处理组与对照组随时间的变化，假设满足平行趋势。它广泛用于评估政策干预，但对趋势违背敏感。可视化处理前趋势并使用安慰剂检验可以增强可信度。</p></li>
+<li><p><strong>工具变量（IV）</strong>　IV 方法通过使用「影响处理但不直接影响结局」的外部变量来处理内生性。该方法的成败取决于工具的强度与效度——而这些标准恰恰难以验证。</p></li>
+<li><p><strong>断点回归设计（RDD）</strong>　RDD 利用清晰的分界点进行分配。它提供了准实验效度，但只能估计阈值附近的局部效应。其有效性取决于断点处的光滑性与不可操纵性。</p></li>
+<li><p><strong>因果森林</strong>　因果森林把随机森林扩展到估计异质性处理效应。它们非常适合个体化干预，但需要大数据集，且对遗漏混杂敏感。</p></li>
+<li><p><strong>S-Learner、T-Learner 与 X-Learner</strong>　这些元学习器（meta-learner）是用机器学习估计<strong>条件平均处理效应（CATE）</strong>的策略。<strong>S-learner</strong> 拟合单一模型、把处理当作一个特征纳入，通过切换处理取值来估计潜在结局。<strong>T-learner</strong> 分别训练处理组与对照组两个模型，再取两者之差。<strong>X-learner</strong> 则综合两者：先用 T-learner 模型填补反事实，再对伪效应建模，通常按倾向得分加权。S-learner 简单但可能抹平异质性，T-learner 分离了两组效应但在数据不均衡时表现不佳，X-learner 则通过跨组利用信息提升了效率。这些方法展示了监督式学习如何被改造用于因果估计，特别是在高维或非线性场景中。</p></li>
+<li><p><strong>贝叶斯结构时间序列（BSTS）</strong>　BSTS 把状态空间模型与贝叶斯推断结合起来估计时间序列中的干预效应。它能容纳趋势与季节性，但对模型误设和先验选择敏感。</p></li>
+<li><p><strong>靶向极大似然估计（TMLE）</strong>　TMLE 把机器学习整合进因果效应估计。在复杂数据设定下它提供双稳健性与高效推断，但计算开销可能很大。</p></li>
+<li><p><strong>G-计算</strong>　G-计算对每种处理下的潜在结局建模。它灵活且基于反事实，但要求准确的建模和完整的协变量调整。</p></li>
+<li><p><strong>结构方程模型（SEM）</strong>　SEM 能够对复杂的因果结构建模，包括潜变量与中介。它的可解释性很有吸引力，但前提是模型设定正确且无未测混杂。</p></li>
+<li><p><strong>有向无环图（DAG）</strong>　DAG 对澄清因果假设必不可少。虽然它不是估计方法，却能通过识别混杂因子、中介变量和对撞因子来指导设计与分析。</p></li>
+</ul>
+
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>流行病学读者会对这一节感到熟悉：PSM 的「平衡诊断」相当于药物流行病学里的标准化差异（SMD）检查，目标是让匹配后协变量在两组间的差异小于 0.1；IPW 的「截尾与稳定化」对应加权后权重分布的检查——权重最大值超过样本量的 1%（即最大权重大于 100）通常提示正值性有问题；DiD 的「安慰剂检验」就是把随机分配的处理时间前置，看是否仍能「造出」效应，造不出才支持平行趋势。这些诊断不是可选项：在临床期刊审稿中，缺了它们几乎必然被要求补做。</p>
+</div>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>本节提到的 S/T/X-learner 可以和第 12 章的因果森林对照阅读：它们都服务于同一个目标——从「平均有没有效」走向「对谁更有效」。区别在于因果森林用树集成直接拟合异质性，而元学习器用现成的预测模型搭积木。临床上的对应问题是「谁最可能从这种治疗中获益」：例如降压药在合并糖尿病或心衰的患者中获益是否更大。注意，亚组分析只有在预设假设、控制多重比较的前提下才被指南认可——这正是第 1 章末尾「诚实推断」思想的来源。</p>
+</div>
+
+<h2><span class="header-section-number">1.4</span> 讨论</h2>
+<p>本基础概览提出的比较框架，同时揭示了因果推断技术的多样性与相互依存性。一个核心结论是：<strong>没有任何单一方法能在所有情境下保证因果推断有效</strong>。相反，任何技术的效度都关键取决于其假设是否与数据结构、对所研究系统的理论理解相匹配。这一观察对应用研究者有两点关键启示。</p>
+<p>第一，<strong>三角验证（triangulation）</strong>——用多种方法回答同一个因果问题——不仅是可取的，而且往往是必要的。例如，可以先用倾向得分匹配实现协变量平衡，再用回归调整建模结局差异，然后把结果与靶向极大似然估计（TMLE）的结果进行比较。如果结论收敛，对因果解释的信心就会增强；如果不收敛，分歧本身能揭示结论对模型设定或未测混杂等假设的敏感性。因此，因果推断本质上是<strong>迭代的</strong>，既需要方法论上的灵活性，也需要诊断上的严谨。</p>
+<p>第二，<strong>仅有方法论素养是不够的</strong>；研究者还必须培养<strong>因果推理</strong>能力。有向无环图（DAG）本身不是估计量，却在澄清「该控制哪些变量、该阻断或保留哪些路径」上发挥着关键作用。基于 DAG 的思维帮助研究者避开常见的陷阱，例如控制对撞因子或中介变量——两者都会引入偏倚。因此，审慎使用 DAG 能够在定性理论洞见与定量估计之间架起桥梁。</p>
+<p>另一重张力出现在<strong>可解释性与复杂性</strong>之间。回归、工具变量等经典技术往往因其清晰和理论扎实而受青睐，而因果森林、TMLE 等现代方法在高维或非线性设定中提供了更强的灵活性与稳健性。然而这些收益常常以牺牲可解释性为代价——尤其是面对需要透明因果叙事的利益相关方或政策制定者时。这引出一个重要的权衡：我们何时应把可解释性置于精确性之上，又如何把这些决策传达给跨学科的受众？</p>
+<p>此外，<strong>机器学习在因果推断中的应用</strong>——以因果森林和 TMLE 为代表——对验证与透明性提出了新标准。与预测建模不同，因果问题本质上是反事实的，无法通过常规交叉验证来检验。证伪检验、安慰剂分析和敏感性分析因此成为不可或缺的工具，在涉及机器学习模型时尤其如此。</p>
+<p>最后，<strong>公平与伦理</strong>必须置于因果分析的中心，在公共卫生、刑事司法、教育等领域尤其如此。校正观测变量的方法，如果这些变量本身只是系统性偏倚的代理，就可能在不经意间延续结构性不平等。因此，研究者必须批判性地对待数据及其背后的社会语境，把因果模型不仅视为统计工具，也视为伦理工具。</p>
+<p>本系列后续文章将深入探讨每种技术，包括代码实现、诊断策略和真实世界案例研究。通过把统计严谨性、领域专业知识和伦理反思编织在一起，我们希望为研究者配备一套稳健而负责任的因果工具箱。</p>
+
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>「三角验证」在医学证据体系中对应「多种研究设计得出一致结论」的证据分级思路（如队列研究 + 病例对照 + 自然实验同时支持某关联）。流行病学中熟悉的 Bradford-Hill 准则中，「不同研究设计下结论一致」正是重要一条。本书的提醒很实际：如果 PSM 和 TMLE 给出方向相反的估计，不要挑一个顺眼的报告，而要追查分歧的来源——常见原因是重叠度不足、模型外推或未测混杂在不同方法下影响不同。</p>
+</div>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>关于「控制对撞因子或中介引入偏倚」：这是流行病学教材中反复强调的教训。经典例子是研究「肥胖→死亡率」时校正了「心血管疾病」——而心血管病既是肥胖的结果又影响死亡，属于中介变量，校正它等于人为切断了部分真实因果路径，使估计偏向无效。对撞因子的例子（如「只入住 ICU 的重症患者」研究血压与预后）同样常见。DAG 的作用就是在设计阶段把这些变量关系画清楚，避免「越多变量校正越好」的误区。</p>
+</div>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p>「伦理与公平」这一段对医学研究者尤为重要。如果用于调整的变量本身是社会结构性偏倚的代理（如用「就诊频次」代理医疗可及性），模型会把不平等编码进结论。当因果分析结果用于医保覆盖决策或临床指南时，建议按年龄段、性别、城乡、医保类型等做分层报告，并明确说明估计量所对应的人群（target population）。这与本书后面讨论的效应修饰/异质性分析一脉相承。</p>
+</div>
+
+<h2><span class="header-section-number">1.5</span> 参考文献</h2>
+<ol style="list-style-type: decimal">
+<li>Hernán &amp; Robins (2020). <em>Causal Inference: What If</em>（《因果推断：如果……会怎样》，因果推断领域使用最广的免费教材）。</li>
+<li>Pearl, Glymour, &amp; Jewell (2016). <em>Causal Inference in Statistics: A Primer</em>（《统计因果推断入门》，Pearl 学派的 DAG 经典导论）。</li>
+<li>VanderWeele (2015). <em>Explanation in Causal Inference</em>（《因果推断中的解释》，中介分析与交互的权威著作）。</li>
+<li>Judea Pearl 的 Causal AI Blog: <a href="https://causality.cs.ucla.edu/blog/" class="uri">https://causality.cs.ucla.edu/blog/</a></li>
+<li>Netflix Tech Blog on Causal Inference:
+<a href="https://netflixtechblog.com/computational-causal-inference-at-netflix-293591691c62" class="uri">https://netflixtechblog.com/computational-causal-inference-at-netflix-293591691c62</a>（Netflix 技术博客：Netflix 的计算因果推断）。</li>
+<li>Number Analytics Education Series:
+<a href="https://www.numberanalytics.com/blog/" class="uri">https://www.numberanalytics.com/blog/</a></li>
+</ol>
