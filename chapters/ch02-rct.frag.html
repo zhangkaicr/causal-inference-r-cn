@@ -1,0 +1,229 @@
+<h2><span class="header-section-number">2.1</span> 引言</h2>
+<p>在本系列的第一篇文章中，我们全面概述了主要的因果推断方法，重点讨论了区分各种技术的假设、优势与局限。在本文中，我们深入探讨两种最基础的方法：随机对照试验（randomized controlled trials, RCT）与回归调整（regression adjustment）。尽管这两种方法对数据生成过程和假设的依赖程度不同，但它们都是理解因果推理逻辑的重要切入点。本文从理论根基与实践导向两方面介绍每种方法，涵盖 R 语言代码实现、诊断方法与解读指导。</p>
+<p>RCT 是因果推断的认识论基准，常被称为「金标准」，因为随机化这一独特机制能够消除混杂。相比之下，回归调整以处理状态和协变量为条件对结局建模，它需要更多假设，但在观察性研究中适用面很广。尽管存在差异，这两种方法都以反事实（counterfactual）推理为根基——因果效应反映的是「实际发生的结局」与「换一种处理方式时本会发生的结局」之间的差异。</p>
+<p>理解这两种方法的逻辑与实现之所以关键，不仅因为它们可以直接使用，还因为它们是匹配、加权、双稳健估计量（doubly robust estimator）等更复杂技术的概念与统计脚手架。</p>
+
+<h2><span class="header-section-number">2.2</span> 1. 随机对照试验：设计与分析</h2>
+<h3><span class="header-section-number">2.2.1</span> 理论基础</h3>
+<p>在 RCT 中，受试者被随机分配到处理组或对照组。这一过程保证了两组在平均意义上对所有协变量（无论观测到与否）统计等价。核心假设是<strong>可交换性（exchangeability）</strong>——给定随机化后，潜在结局独立于处理分配。这使得简单地比较两组的平均结局就能得到因果效应的无偏估计。</p>
+<p>形式上，记 <span class="math inline">\(Y(1)\)</span> 和 <span class="math inline">\(Y(0)\)</span> 分别为接受处理与对照时的潜在结局。平均处理效应（ATE）定义为：</p>
+<p><span class="math display">\[
+\text{ATE} = \mathbb{E}[Y(1) - Y(0)]
+\]</span></p>
+<p>在一次完美的随机试验中，我们通过比较样本均值来估计 ATE：</p>
+<p><span class="math display">\[
+\widehat{\text{ATE}} = \bar{Y}_1 - \bar{Y}_0
+\]</span></p>
+<p>只要随机化得到正确实施且依从性完美，该估计量就是无偏且一致的。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>随机化为什么能「平衡」混杂因子？直观地说：随机分配使每个受试者进入处理组的概率相同，且这一概率与受试者自身的任何特征无关。因此处理组与对照组在基线时不仅在所有<strong>已测量</strong>的变量上分布相同，在所有<strong>未测量</strong>的因素（遗传易感性、运动习惯、求医行为、疾病严重程度的临床印象……）上也分布相同。用第 1 章的语言说，混杂因子是同时影响处理分配与结局的共同原因；随机化把「个体特征 → 处理分配」这条因果路径彻底切断，有向无环图（DAG）中不再存在连接处理与结局的后门路径。</p>
+  <p>这与观察性研究形成鲜明对照。在观察性数据中，医生倾向于把新药开给病情更重（或更轻、更年轻）的患者——即所谓「适应证混杂」（confounding by indication）。此时组间结局差异既可能来自药物，也可能来自病情本身，不调整就无法分离。随机化之所以是金标准，正因为它把「处理分配」变成一个与患者特征无关的机械过程（类似抛硬币），可交换性由设计而非模型假设来保证。</p>
+  <p>两点补充。第一，简单随机化只在<strong>平均意义</strong>上保证平衡：某一次具体的随机化仍可能碰巧失衡（例如某组偶然多收了老年患者），这就是 2.2.4 节平衡诊断存在的理由；小样本试验常用分层随机化、区组随机化或最小化法来降低这种偶然失衡。第二，随机化平衡的是<strong>基线</strong>特征，它不能防止试验过程中出现的失访、退出和交叉服药——这些属于分析阶段的问题，见本节末尾关于 ITT 与缺失数据的讨论。</p>
+</div>
+
+<h3><span class="header-section-number">2.2.2</span> R 实现</h3>
+<p>我们先模拟一个简单的 RCT，估计二分类处理对结局的效应。</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code># 加载所需的 R 包
+library(tidyverse)</code></pre></div>
+<pre><code>## ── Attaching core tidyverse packages ─────────────────────────────────────────────────────────────────────────────────────────── tidyverse 2.0.0 ──
+## ✔ dplyr     1.1.4     ✔ readr     2.1.5
+## ✔ forcats   1.0.0     ✔ stringr   1.5.1
+## ✔ ggplot2   3.5.2     ✔ tibble    3.2.1
+## ✔ lubridate 1.9.4     ✔ tidyr     1.3.1
+## ✔ purrr     1.0.4
+## ── Conflicts ───────────────────────────────────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ dplyr::filter() masks stats::filter()
+## ✖ dplyr::lag()    masks stats::lag()
+## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+<p>这段输出表明 tidyverse 2.0.0 已随 library() 调用一并加载其核心包：dplyr、readr、forcats、stringr、ggplot2、tibble、lubridate、tidyr、purrr。末尾的 Conflicts 部分提示 dplyr 的 filter() 与 lag() 会屏蔽 stats 包中的同名函数——本书代码不受影响，但同一会话中混用基础 R 函数时需要留意。</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code># 设定随机种子以保证结果可复现
+set.seed(123)
+
+# 模拟数据
+n &lt;- 1000
+data_rct &lt;- tibble(
+  treatment = rbinom(n, 1, 0.5),
+  outcome = 5 + 2 * treatment + rnorm(n)
+)
+
+# 用均值差估计 ATE
+ate_estimate &lt;- data_rct %&gt;%
+  group_by(treatment) %&gt;%
+  summarise(mean_outcome = mean(outcome)) %&gt;%
+  summarise(ATE = diff(mean_outcome))
+
+print(ate_estimate)</code></pre></div>
+<pre><code>## # A tibble: 1 × 1
+##     ATE
+##   &lt;dbl&gt;
+## 1  2.00</code></pre>
+<p>输出的 tibble 显示 ATE 估计为 2.00。模拟数据中结局的生成公式是 <code>outcome = 5 + 2 * treatment + rnorm(n)</code>，即真实处理效应恰为 2、噪声标准差为 1，均值差估计几乎精确复现了真值。随机化下这并非运气：由于处理分配与所有个体特征独立，两组均值差只反映处理效应本身，标准误约为 \(\sqrt{1/500 + 1/500} \approx 0.063\)，1000 例样本足以给出精确估计。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>代码里的 <code>diff(mean_outcome)</code> 是个值得留意的细节：<code>group_by(treatment)</code> 汇总后 treatment 按 0、1 排序，<code>diff()</code> 计算的是「第二行减第一行」，即<strong>处理组均值减对照组均值</strong>。读者在自己写分析代码时，务必确认差的方向与临床解读一致（例如 HbA1c 变化量为负代表改善，那么「新药减标准治疗」为负说明新药有效）。方向错误是论文图表中最常见的低级错误之一。</p>
+</div>
+
+<h3><span class="header-section-number">2.2.3</span> 基于模型的推断</h3>
+<p>虽然 RCT 不要求做基于模型的调整，但回归模型常被用来提高精度或校正残余失衡。在 RCT 语境下，这类模型是<strong>描述性</strong>的，而非<strong>校正性</strong>的。</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code># 以处理为预测变量的线性回归
+lm_rct &lt;- lm(outcome ~ treatment, data = data_rct)
+summary(lm_rct)</code></pre></div>
+<pre><code>##
+## Call:
+## lm(formula = outcome ~ treatment, data = data_rct)
+##
+## Residuals:
+##     Min      1Q  Median      3Q     Max
+## -2.8201 -0.6988  0.0169  0.6414  3.3767
+##
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)
+## (Intercept)  5.01029    0.04450  112.59   &lt;2e-16 ***
+## treatment    2.00334    0.06338   31.61   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+##
+## Residual standard error: 1.002 on 998 degrees of freedom
+## Multiple R-squared:  0.5003,  Adjusted R-squared:  0.4998
+## F-statistic: 999.1 on 1 and 998 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>该模型中处理变量的系数给出了 ATE 的估计。重要的是，在随机化设计中，加入额外协变量<strong>不应</strong>实质改变点估计，尽管它可能降低方差。</p>
+<p>输出解读：截距 5.010 是对照组的平均结局（真实基线为 5）；treatment 系数 2.003 即 ATE 估计，与上一节的均值差完全一致——在随机化数据上，只含处理的线性回归与均值差本来就是同一个估计量。t 值 31.6、P &lt; 2e-16 表示处理效应极显著；R² = 0.5003 说明处理解释了结局约一半的方差（模拟数据中处理贡献方差 1、噪声贡献方差 1，故 1/(1+1) = 0.5），这与估计的精确吻合也侧面印证了数据生成过程。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>回归调整在 RCT 中的地位，与它在观察性研究中完全不同：<strong>不是为了「校正混杂」（随机化已经处理了这件事），而是为了提高精度、校正偶然失衡</strong>。统计学上，这就是临床试验读者熟悉的 ANCOVA（协方差分析）——把基线测量值作为协变量放入结局模型。Fisher 的效率论证表明：只要协变量与结局相关，调整后处理效应的估计方差就会下降，等价于免费增加样本量。对昂贵、漫长的临床试验来说，这种效能增益非常实际。</p>
+  <p>临床研究中的三条实践准则：第一，ICH E9 统计学指导原则与 CONSORT 报告规范都要求调整模型<strong>事先</strong>写在统计分析计划里，不能看着结果再挑选协变量；第二，只能调整<strong>基线（随机化前）</strong>协变量——调整随机化后变量（如依从性、治疗过程中的中间结局）会引入偏倚，这是过度调整的典型错误；第三，多数监管机构接受「未调整的组间差值」作为主分析、调整分析作为敏感性分析，两种估计在大样本 RCT 中应当互相印证。</p>
+</div>
+
+<h3><span class="header-section-number">2.2.4</span> 诊断与试验诚信</h3>
+<p>尽管随机化保证了内部真实性，其实际执行仍须验证。平衡诊断——如标准化均值差（standardized mean difference, SMD）或按处理组展示协变量分布的可视化——有助于确认各组在基线时确实等价。如果存在实质性失衡（尤其在小样本中），基于模型的协变量调整可以提高效率，但无法消除因随机化实施不当造成的偏倚。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>平衡诊断有一个常见误区：<strong>不要用假设检验判断基线是否平衡</strong>。样本量大时，微不足道的差异也会「显著」（P &lt; 0.05）；样本量小时，严重的偶然失衡也可能「不显著」。惯例是报告标准化均值差（组间均值差除以合并标准差），并以 |SMD| &gt; 0.1 作为需要关注的信号；R 包的 tableone、cobalt 可以一键生成。注意 SMD 是<strong>描述性</strong>指标，不随样本量放大而「显著」，正适合这个用途。</p>
+  <p>如果基线出现严重失衡，首先应怀疑随机化实施环节：分配序列是否被提前获知（分配隐藏失败）？研究者是否挑选了患者？盲法是否形同虚设？此时正确的做法是审查试验执行，而不是「用模型把失衡调回来」——模型只能处理已测量协变量的失衡，对未测量的选择机制无能为力。</p>
+</div>
+
+<h2><span class="header-section-number">2.3</span> 2. 回归调整：因果推断的基于模型路径</h2>
+<h3><span class="header-section-number">2.3.1</span> 概念概览</h3>
+<p>回归调整有时也叫协变量调整（covariate adjustment），是观察性研究中最常用的因果估计方法之一。与 RCT 不同，该方法要求<strong>无未测量混杂</strong>假设，通常称为条件可忽略性（conditional ignorability）：</p>
+<p><span class="math display">\[
+Y(1), Y(0) \perp D \mid X
+\]</span></p>
+<p>这里 <span class="math inline">\(D\)</span> 是二分类处理变量，<span class="math inline">\(X\)</span> 是观测协变量向量。核心思想是控制同时影响处理分配与潜在结局的混杂因子 <span class="math inline">\(X\)</span>。</p>
+<p>线性模型通常采用如下形式：</p>
+<p><span class="math display">\[
+Y = \beta_0 + \beta_1 D + \beta_2 X + \varepsilon
+\]</span></p>
+<p>系数 <span class="math inline">\(\beta_1\)</span> 被解释为平均处理效应——前提是模型设定正确且所有相关混杂因子都已纳入。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>「无未测量混杂」是观察性研究的阿喀琉斯之踵：它假设我们已经测量并调整了<strong>全部</strong>共同原因，而这个假设<strong>无法用数据本身检验</strong>——能测量的都已经放进模型了，剩下的只能是领域知识的论证。临床实践中，未测量混杂常以这些面貌出现：社会经济地位、服药依从性、术者经验、疾病严重程度的细微临床印象、共病的未记录维度。应对手段包括阴性对照变量/阴性对照结局、工具变量（第 5 章）、敏感性分析（如 E-value），但都不能「证明」没有混杂，只能评估「要多强的未测量混杂才能推翻结论」。</p>
+  <p>另一个常被忽视的假设是<strong>正值性（positivity）</strong>，即重叠假设：在协变量的每个取值组合下，接受每种处理的概率都大于 0。如果某类患者在现实中「要么全都用新药、要么全都不用」（例如某亚组从不用新药），那么这类患者不提供任何反事实信息，任何方法都只能靠外推。观察性研究设计阶段就要检查协变量空间的重叠程度，而不是把「外推」误当作「估计」。</p>
+</div>
+
+<h3><span class="header-section-number">2.3.2</span> R 实现</h3>
+<p>现在我们模拟一份含混杂因子的观察性数据，演示回归调整。</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code># 模拟观察性数据
+set.seed(123)
+n &lt;- 1000
+x &lt;- rnorm(n)
+d &lt;- rbinom(n, 1, plogis(0.5 * x))
+y &lt;- 5 + 2 * d + 1.5 * x + rnorm(n)
+
+data_obs &lt;- tibble(
+  treatment = d,
+  covariate = x,
+  outcome = y
+)
+
+# 朴素模型（不做调整）
+lm_naive &lt;- lm(outcome ~ treatment, data = data_obs)
+summary(lm_naive)</code></pre></div>
+<pre><code>##
+## Call:
+## lm(formula = outcome ~ treatment, data = data_obs)
+##
+## Residuals:
+##     Min      1Q  Median      3Q     Max
+## -5.6984 -1.2133  0.0263  1.1233  5.5131
+##
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)
+## (Intercept)  4.78011    0.07476   63.94   &lt;2e-16 ***
+## treatment    2.51150    0.10882   23.08   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+##
+## Residual standard error: 1.718 on 998 degrees of freedom
+## Multiple R-squared:  0.348,  Adjusted R-squared:  0.3473
+## F-statistic: 532.7 on 1 and 998 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>遗漏混杂因子的朴素模型给出有偏的处理效应估计。相比之下，调整模型校正了这一偏倚——前提是所有相关混杂因子都已纳入且函数形式正确。</p>
+<p>输出解读：treatment 系数为 2.512，明显高于真实效应 2。原因在于协变量 x 同时驱动两件事：它通过 <code>plogis(0.5 * x)</code> 提高接受处理的概率，又通过 <code>1.5 * x</code> 直接抬高结局。x 越大的人越可能被处理、结局也越高，于是「处理组」里系统性地富集了高 x 个体，组间差异中混入了 x 的贡献——这就是遗漏变量偏倚（omitted variable bias）的现场演示。注意截距也偏离了真实基线 5（这里是 4.78），残差标准差 1.72 明显大于 RCT 情形的 1.00，因为模型没解释的 x 变异被扔进了残差。</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code># 调整后的模型
+lm_adjusted &lt;- lm(outcome ~ treatment + covariate, data = data_obs)
+summary(lm_adjusted)</code></pre></div>
+<pre><code>##
+## Call:
+## lm(formula = outcome ~ treatment + covariate, data = data_obs)
+##
+## Residuals:
+##     Min      1Q  Median      3Q     Max
+## -3.0404 -0.6277 -0.0251  0.6877  3.2613
+##
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)
+## (Intercept)  5.01601    0.04314  116.28   &lt;2e-16 ***
+## treatment    1.96230    0.06350   30.90   &lt;2e-16 ***
+## covariate    1.44628    0.03198   45.22   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+##
+## Residual standard error: 0.984 on 997 degrees of freedom
+## Multiple R-squared:  0.7863,  Adjusted R-squared:  0.7859
+## F-statistic:  1834 on 2 and 997 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>输出解读：加入协变量后，treatment 系数回落到 1.962，贴近真值 2；covariate 系数 1.446 也接近真实的 1.5。与此同时，残差标准差从 1.718 降到 0.984、R² 从 0.348 升到 0.786——调整混杂因子在<strong>校正偏倚</strong>的同时还<strong>提高了精度</strong>。这个「一加协变量，估计回归真值」的演示，正是观察性研究效应估计的标准动作。</p>
+
+<h3><span class="header-section-number">2.3.3</span> 局限与诊断</h3>
+<p>回归调整依赖于正确的模型设定和全部相关混杂因子的纳入。遗漏变量偏倚仍是重大威胁，多重共线性或函数形式误设也会扭曲估计。残差图、方差膨胀因子（VIF）与设定检验是模型诊断的必备工具。</p>
+<p>此外，回归并不处理<strong>重叠（overlap）</strong>问题——即所有个体在给定协变量下接受每种处理的概率都非零的要求。违反该假设会导致外推与糟糕的可推广性。</p>
+<p>评估协变量重叠的一个策略是建模倾向得分（propensity score），并可视化其在各处理组中的分布。</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code># 估计倾向得分
+ps_model &lt;- glm(treatment ~ covariate, data = data_obs, family = binomial())
+data_obs &lt;- data_obs %&gt;% mutate(pscore = predict(ps_model, type = "response"))
+
+# 绘制倾向得分分布
+ggplot(data_obs, aes(x = pscore, fill = factor(treatment))) +
+  geom_density(alpha = 0.5) +
+  labs(fill = "处理组", title = "倾向得分重叠情况")</code></pre></div>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-4-1.png" width="672" alt="倾向得分在两组间的密度分布" /></p>
+<p>图中横轴为倾向得分（接受处理的估计概率），两条密度曲线分别对应对照组（0）与处理组（1）。本例中两条曲线大面积重叠——绝大多数患者都有非零的概率进入任一组——说明正值性假设基本满足，回归调整不会依赖极端外推。如果两组间重叠很差（例如处理组集中在高概率区间、对照组集中在低概率区间），回归调整可能给出高方差且有效性存疑的估计。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>倾向得分（propensity score）是 Rosenbaum 与 Rubin 1983 年提出的降维工具：给定 X 后接受处理的概率 \(P(D = 1 \mid X)\)。它的妙处在于，只要调整（匹配、分层或加权）这一个标量，就能像调整全部协变量一样阻断混杂。重叠图是观察性研究论文中越来越标准的配图：曲线重叠差，意味着很多「处理组患者」在对照组中找不到可比对象，此时的效应估计是在比较「苹果和橙子」。</p>
+  <p>对医学读者，把倾向得分想成「处方医生的决策评分」会很直观：得分高的患者是医生一看就想开新药的人。如果两组的得分分布几乎不重叠，说明临床实践中两类患者界限分明，任何统计方法都无力回天——此时要么裁剪样本到重叠区（牺牲可推广性）、要么换识别策略（工具变量、断点回归）。第 3 章会系统展开倾向得分方法。</p>
+</div>
+
+<h3><span class="header-section-number">2.3.4</span> 因果解读</h3>
+<p>虽然回归模型给出的是条件处理效应的估计，但对这些系数作因果解读时必须谨慎。回归调整给出的处理效应估计只有在强假设下才无偏：无未测量混杂、模型设定正确、重叠充分。</p>
+<p>这使回归调整成为一把双刃剑：使用方便、系数可解释，但它对隐藏偏倚的敏感性要求研究者保持严格的审视。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>函数形式误设是回归调整特有的软肋。线性模型假设「处理效应在协变量各处恒定、协变量与结局的关系是直线」。真实临床数据中，年龄与疗效的关系常是 U 形的，化验指标与风险常是对数线性的——一条直线拟合全局，等于同时低估年轻人、高估中年人的效应。缓解办法：加入非线性项（样条、多项式）、分层分析、或换用不依赖线性设定的方法（匹配、加权、第 7 章的因果森林）。</p>
+  <p>还有一个微妙的点：即使所有混杂因子都已调整，回归系数解释的是「把协变量固定在观测值处的条件效应」。当处理效应本身随 X 变化时（效应修饰），单一 \(\beta_1\) 只是某种加权平均，权重由协变量分布决定——它与 ATE 未必相等。这也是现代文献更推荐 g-计算（对回归预测做标准化）来估计 ATE 的原因，第 4 章会进一步讨论。</p>
+</div>
+
+<h2><span class="header-section-number">2.4</span> 走向整合的推理</h2>
+<p>把 RCT 与回归调整并置，凸显了<strong>基于设计</strong>（design-based）与<strong>基于模型</strong>（model-based）推断的对照。RCT 通过随机化机制本身实现因果识别，统计调整因此并非必需（尽管有时有助于提高精度）。回归调整则完全依赖其假设的合理性，因而容易受到隐藏混杂与设定错误的伤害。</p>
+<p>重要的是，不应孤立地看待这些方法。混合设计与分析策略——例如<strong>RCT 中的回归调整</strong>或<strong>观察性研究中的设计式诊断</strong>——正在模糊彼此的边界，并指向更整合的因果推断路径。</p>
+<p>此外，双稳健估计（doubly robust estimation）、倾向得分加权、基于机器学习的因果估计量等新兴方法，都建立在这两种方法打下的地基之上。因此，理解 RCT 与回归调整的机制与逻辑，是掌握更高级技术的先决条件。</p>
+
+<h2><span class="header-section-number">2.5</span> 结论</h2>
+<p>在本篇中，我们探讨了因果推断两大基石方法的理论依据、实现与实践考量：随机对照试验与回归调整。RCT 在可行时提供无可比拟的因果可信度，而回归模型在强假设下为观察性数据分析提供灵活工具。二者在因果推断工具箱中的互补角色，使其成为任何应用研究者不可或缺的手段。</p>
+<p>本系列的下一篇将转向<strong>倾向得分方法</strong>，考察匹配与加权策略如何用观察性数据逼近随机实验。与所有因果方法一样，关键不仅在于计算，更在于假设的清晰与推理的诚信。</p>
+<p>通过结合设计原则、诊断严谨性与伦理敏感性，因果推断为应对真实世界数据的复杂性提供了强大框架。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>最后补两个与本章直接相关、医学读者几乎每天都会遇到的分析议题。</p>
+  <p><strong>ITT 与符合方案分析。</strong>RCT 分析的金标准是 ITT（意向性治疗分析，intention-to-treat）：所有受试者都按<strong>随机化分组</strong>分析，无论他们实际接受了什么治疗、是否完成试验。ITT 保留了随机化赋予的可交换性，估计的是「被分配去接受治疗」这一策略的效果，且在有交叉服药和失访时偏保守。PP（符合方案分析，per-protocol）只分析依从者——依从与否常与预后相关（病情轻者更容易坚持服药），会重新引入选择偏倚，只能作敏感性分析。ITT 与 PP 的差距恰恰催生了工具变量法（第 5 章）：以随机化分组为工具，可以估计「依从者亚群」的效应（LATE）。写论文时报告 ITT 为主、PP 为辅，是 CONSORT 的明确要求。</p>
+  <p><strong>缺失数据。</strong>医学试验的缺失极其常见：失访、退出、化验漏测。随机化只平衡基线，不能免疫缺失造成的选择偏倚——如果病情最重的患者更可能退出，那么剩下的「完整病例」在两组中的构成已经不同。直接用完整病例（complete case）相当于在「未缺失」这个事后变量上做条件分析，可能破坏随机化。推荐做法：预先设定缺失处理策略，如多重插补（multiple imputation）、逆概率加权（第 3 章倾向得分方法的延伸）、或 MAR 假设下的混合效应模型；CONSORT 要求用受试者流程图报告各阶段流失人数，并对不同缺失假设做敏感性分析。记住：缺失机制假设（MCAR / MAR / MNAR）的选择，往往比统计方法本身更影响结论。</p>
+</div>
