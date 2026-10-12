@@ -1,0 +1,326 @@
+<h2><span class="header-section-number">8.1</span> 引言</h2>
+<p>贝叶斯结构时间序列（Bayesian structural time series，BSTS）是一种强大的因果推断统计方法，适用于随机对照试验不可行、不合伦理或不切实际的场景。因此，它在评估人群层面的健康干预、政策变化和医学治疗方面极具价值。传统方法（如双重差分，difference-in-differences，DiD）假设处理组与对照组具有平行趋势（parallel trends）——这一条件在复杂的医疗数据中很少成立——而 BSTS 克服了这一局限。它能够对复杂的时间模式（如趋势与季节性）建模，并学习控制序列（control series）的最优数据驱动组合，以此构建一个合成的反事实（synthetic counterfactual）。</p>
+<p>该方法的基础是将状态空间模型（state-space model）与贝叶斯推断相结合，从而实现稳健的不确定性量化。BSTS 不是给出因果效应的单一点估计，而是为反事实结局生成完整的后验分布（posterior distribution）。这种概率化方法为干预效应提供了可信区间（credible interval），天然而充分地将来自模型本身、模型参数以及预测过程的不确定性整合在一起。这种全景视角对于在医疗领域做出明智决策至关重要。</p>
+<p>BSTS 通过将时间序列分解为若干不可观测的成分来建模，例如趋势成分、季节成分和回归变量的影响。对于一个从 \(t=1\) 观测到 \(T\) 的医疗结局 \(y\_t\)，若干预发生在 \(T\_0+1\) 时刻，模型的目标是预测反事实结局——即如果干预没有发生，\(T\_0\) 之后的 \(y\_t\) 会是什么样子。</p>
+<p>核心模型被设定为一个状态空间模型，它由观测方程（observation equation）和状态方程（state equation）两部分组成。</p>
+<ol style="list-style-type: decimal">
+<li><strong>观测方程</strong>：将观测数据 \(y\_t\) 与不可观测的状态向量 \(\\alpha\_t\) 联系起来。
+<span class="math display">\[y_t = Z_t^T \alpha_t + \epsilon_t, \quad \epsilon_t \sim \mathcal{N}(0, \sigma_t^2)\]</span></li>
+<li><strong>状态方程</strong>：描述状态向量 \(\\alpha\_t\) 如何随时间演化。
+<span class="math display">\[\alpha_{t+1} = T_t \alpha_t + R_t \eta_t, \quad \eta_t \sim \mathcal{N}(0, Q_t)\]</span></li>
+</ol>
+<p>状态向量 \(\\alpha\_t\) 包含可解释的成分。医疗结局的典型分解可以是：
+<span class="math display">\[y_t = \mu_t + \gamma_t + \beta^T x_t + \epsilon_t\]</span>
+其中：</p>
+<ul>
+<li>\(\\mu\_t\) 是<strong>趋势成分</strong>（trend component），通常建模为局部线性趋势（local linear trend），它允许基线水平和增长速度随时间变化。
+<span class="math display">\[\mu_{t+1} = \mu_t + \delta_t + u_{\mu, t}\]</span> <span class="math display">\[\delta_{t+1} = \delta_t + u_{\delta, t}\]</span></li>
+<li>\(\\gamma\_t\) 是<strong>季节成分</strong>（seasonal component），捕捉周期性模式（例如每周的医院入院周期或每年的流感季）。</li>
+<li>\(\\beta^T x\_t\) 是<strong>回归成分</strong>（regression component），它对结局 \(y\_t\) 与一组不受干预影响的控制时间序列 \(x\_t\) 之间的同期关系进行建模。</li>
+</ul>
+<p>于是，每个干预后时间点 \(t \&gt; T\_0\) 的因果效应估计为观测结局与预测反事实值之差：
+<span class="math display">\[\text{Effect}_t = y_t - \hat{y}_t^{\text{counterfactual}}\]</span>
+模型仅使用干预前时期（\(t \\le T\_0\)）的数据进行拟合，然后将反事实结局外推到干预后时期（\(t \&gt; T\_0\)），以此估计因果影响。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p><strong>合成控制法与政策评估：BSTS 在方法论谱系中的位置。</strong>医学研究者更熟悉的设计是"单一处理组的前后对比"或"双重差分"，而在计量经济学中，评估州/国家层面政策（如控烟立法、最低饮酒年龄、枪支管制）的经典工具是合成控制法（synthetic control method，SCM，Abadie 等提出）：用若干个未受干预的对照单位做加权平均，构造一个"合成对照组"，使其在干预前的轨迹与处理组高度吻合，再把干预后的差距当作政策效应。BSTS 可以理解为 SCM 的贝叶斯概率化扩展——它同样从多条控制序列学习最优组合来合成反事实，但额外提供了完整的后验分布（而不只是一个点效应）和更系统的变量筛选机制（尖峰-厚板先验）。对临床研究的启示是：当你面对的是"整个医院/整个地区实施了某项政策"而无法找到个体层面的随机化时，这类"聚合水平时间序列 + 合成对照"的思路往往比简单的 ITS 前后对比更有说服力。</p>
+<p><strong>状态空间模型的通俗理解。</strong>不必被公式吓倒：状态空间模型的思想与流行病学中的"潜变量"类似——真实世界中我们观测不到"疾病流行基线水平""季节波动强度"这些量，只能看到每月的就诊数；状态方程描述这些潜状态如何随时间演化，观测方程描述潜状态如何生成我们看到的数字。模型借助卡尔曼滤波式的递推在"看到新数据"与"更新对潜状态的信念"之间循环，MCMC 采样则把所有不确定性传播到最终的效应估计里。</p>
+</div>
+<h4><span class="header-section-number">8.1.0.1</span> 控制变量的选择</h4>
+<p>BSTS 框架的一个关键特性，是能够为回归成分执行自动变量选择。这通常通过对回归系数 \(\\beta\_j\) 使用<strong>尖峰-厚板先验</strong>（spike-and-slab priors）来实现。每个系数的先验是两个分布的混合：一个"厚板"（slab，弥散的分布，如正态分布）和一个"尖峰"（spike，紧密集中于零的分布）。
+<span class="math display">\[\beta_j | \pi_j \sim (1 - \pi_j) \cdot \mathcal{N}(0, \tau^2) + \pi_j \cdot \delta_0\]</span>
+这里，\(\\pi\_j\) 是系数落在"尖峰"（即实际上为零）中的概率，\(\\delta\_0\) 是位于零点的点质量（point mass）。在模型拟合过程中（通过 MCMC），每个变量被纳入模型的后验概率会被估计出来，从而使模型能够从可能很大的控制变量集合中自动筛选出最相关的预测因子。</p>
+<h2><span class="header-section-number">8.2</span> R 实现示例：医疗场景</h2>
+<h3><span class="header-section-number">8.2.1</span> 烟草税政策</h3>
+<p>我们分析一项新的烟草税对吸烟相关住院入院的因果影响。某个州实施了显著的每包香烟税上调，而其邻近各州没有。实验设计在这里不可行。研究目标是估计该税收政策导致的入院人数下降，同时考虑季节性、潜在趋势和其他混杂因素。</p>
+<p>结局变量是每 10 万人口中每月与吸烟相关的住院入院数，共观测 60 个月。税收政策于第 37 个月份引入。控制变量包括失业率、医疗可及性指标、人口学数据，以及未实施税收变化的邻近州的入院率。</p>
+<p>下面的 R 代码模拟了这一场景的数据，并应用 BSTS 模型估计因果效应。</p>
+<pre class="sourceCode r"><code># 加载所需的 R 包
+library(bsts)</code></pre>
+<pre><code>## Warning: package 'bsts' was built under R version 4.5.1
+## Loading required package: BoomSpikeSlab
+## Warning: package 'BoomSpikeSlab' was built under R version 4.5.1
+## Loading required package: Boom
+## Warning: package 'Boom' was built under R version 4.5.1
+##
+## Attaching package: 'Boom'
+##
+## The following object is masked from 'package:stats':
+##
+##     rWishart
+##
+## Attaching package: 'BoomSpikeSlab'
+##
+## The following object is masked from 'package:stats':
+##
+##     knots
+## Loading required package: xts
+##
+## ######################### Warning from 'xts' package ##########################
+## #                                                                             #
+## # The dplyr lag() function breaks how base R's lag() function is supposed to  #
+## # work, which breaks lag(my_xts). Calls to lag(my_xts) that you type or       #
+## # source() into this session won't work correctly.                            #
+## #                                                                             #
+## # Use stats::lag() to make sure you're not using dplyr::lag(), or you can add #
+## # conflictRules('dplyr', exclude = 'lag') to your .Rprofile to stop           #
+## # dplyr from breaking base R's lag().                                        #
+## #                                                                             #
+## # Code in packages is not affected. It's protected by R's namespace mechanism #
+## # Set `options(xts.warn_dplyr_breaks_lag = FALSE)` to suppress this warning.  #
+## #                                                                             #
+## ###############################################################################
+##
+## Attaching package: 'xts'
+##
+## The following objects are masked from 'package:dplyr':
+##
+##     first, last
+##
+## Attaching package: 'bsts'
+##
+## The following object is masked from 'package:BoomSpikeSlab':
+##
+##     SuggestBurn</code></pre>
+<p><strong>输出解读</strong>：这些只是加载依赖包时的常规信息，与因果分析本身无关。<code>bsts</code> 依赖 BoomSpikeSlab（提供尖峰-厚板先验，用于变量选择）、Boom（状态空间模型工具集）和 xts（时间序列对象）。xts 的警告提示 dplyr 的 <code>lag()</code> 会覆盖基础 R 的 <code>lag()</code>，本书代码不涉及该函数，可忽略。</p>
+<pre class="sourceCode r"><code># -- 1. 模拟医疗数据 --
+set.seed(12345)
+n_months &lt;- 60
+intervention_month &lt;- 36
+pre_period &lt;- 1:intervention_month
+post_period &lt;- (intervention_month + 1):n_months
+
+# 创建时间索引
+dates &lt;- seq(from = as.Date("2020-01-01"), by = "month", length.out = n_months)
+time_idx &lt;- 1:n_months
+
+# 生成反映医疗模式的季节成分
+seasonal_respiratory &lt;- 5 * sin(2 * pi * time_idx / 12 - pi/2) # 冬季高峰
+seasonal_stress &lt;- 3 * cos(2 * pi * time_idx / 12 + pi/4)      # 假期效应
+
+# 生成基线趋势
+baseline_trend &lt;- 50 + cumsum(rnorm(n_months, mean = 0.1, sd = 0.5))
+
+# 生成控制变量（候选预测因子）
+unemployment_rate &lt;- 6 + 2 * sin(2 * pi * time_idx / 12) + rnorm(n_months, 0, 0.5)
+healthcare_access &lt;- 80 + cumsum(rnorm(n_months, 0, 1))
+population_65plus &lt;- 15 + 0.05 * time_idx + rnorm(n_months, 0, 0.2)
+# 一个强预测因子：相似地区的入院数
+neighboring_state_admissions &lt;- baseline_trend * 0.8 + seasonal_respiratory * 0.7 + rnorm(n_months, 0, 2)
+# 一个噪声变量
+economic_index &lt;- 100 + cumsum(rnorm(n_months, 0, 0.8))
+
+# 将控制变量合并为矩阵
+X &lt;- cbind(unemployment_rate, healthcare_access, population_65plus,
+           neighboring_state_admissions, economic_index)
+
+# 生成真实的干预效应（入院数逐渐下降）
+true_effect &lt;- rep(0, n_months)
+n_post &lt;- length(post_period)
+for (i in 1:n_post) {
+  # 效应随时间累积并趋于平台（指数衰减形式）
+  reduction &lt;- -8 * (1 - exp(-0.15 * i)) + rnorm(1, 0, 0.5)
+  true_effect[intervention_month + i] &lt;- reduction
+}
+
+# 通过组合各成分生成观测结局
+baseline_admissions &lt;- baseline_trend + seasonal_respiratory + seasonal_stress +
+                      unemployment_rate * 0.8 +
+                      population_65plus * 0.6 +
+                      neighboring_state_admissions * 0.4 +
+                      rnorm(n_months, 0, 2)
+observed_admissions &lt;- baseline_admissions + true_effect
+
+# 创建用于分析的数据框
+full_data &lt;- data.frame(
+  admissions = observed_admissions,
+  as.data.frame(X)
+)
+
+cat("Healthcare intervention analysis setup complete\n")</code></pre>
+<pre><code>## Healthcare intervention analysis setup complete</code></pre>
+<p><strong>输出解读</strong>：数据模拟完成。这是一个"已知真实答案"的教学数据集——我们人为设定了一个逐渐显现并趋于平台的效应（真实 ATE 为 -5.89 例/10 万），后面可以把 BSTS 的估计值与这个真实值对照，直观检验方法是否奏效。注意模拟数据里同时包含趋势、年度季节性、周内模式和多个控制变量，这正是真实世界住院数据的典型复杂结构。</p>
+<pre class="sourceCode r"><code>cat("Pre-intervention mean admissions:", round(mean(observed_admissions[pre_period]), 2), "\n")</code></pre>
+<pre><code>## Pre-intervention mean admissions: 84.22</code></pre>
+<p><strong>输出解读</strong>：干预前 36 个月的平均月入院为 84.22 例/10 万。</p>
+<pre class="sourceCode r"><code>cat("Post-intervention mean admissions:", round(mean(observed_admissions[post_period]), 2), "\n")</code></pre>
+<pre><code>## Post-intervention mean admissions: 89.09</code></pre>
+<p><strong>输出解读</strong>：干预后 24 个月的平均月入院为 89.09 例/10 万——表面看不降反升。这正是单纯前后对比会误导的典型例子：数据里存在缓慢上升的基线趋势和季节性波动，掩盖了政策带来的下降。</p>
+<pre class="sourceCode r"><code>cat("True average treatment effect:", round(mean(true_effect[post_period]), 2), "\n")</code></pre>
+<pre><code>## True average treatment effect: -5.89</code></pre>
+<p><strong>输出解读</strong>：模拟中设定的真实平均处理效应为 -5.89 例/10 万，即税收政策平均每月使入院数减少约 5.89 例/10 万。接下来看 BSTS 能否从观测数据中把这个数字"还原"出来。</p>
+<pre class="sourceCode r"><code># -- 2. 拟合 BSTS 模型 --
+
+# 修正：先定义 pre_period_data，再用于状态设定
+pre_period_data &lt;- full_data[pre_period, ]
+
+# 定义模型结构（状态设定）
+ss &lt;- list()
+# 现在可以安全地使用 pre_period_data$admissions
+ss &lt;- AddLocalLinearTrend(ss, y = pre_period_data$admissions)
+ss &lt;- AddSeasonal(ss, y = pre_period_data$admissions, nseasons = 12)
+
+# 使用尖峰-厚板先验拟合 BSTS 模型（自动变量选择）
+bsts_model &lt;- bsts(admissions ~ .,
+                   state.specification = ss,
+                   data = pre_period_data,
+                   niter = 3000,
+                   ping = 0, # 关闭进度条
+                   seed = 123)
+
+# -- 3. 预测反事实并估计效应 --
+
+# 用拟合好的模型预测干预后时期的结局
+post_period_covariates &lt;- full_data[post_period, -1] # 排除结局变量
+predictions &lt;- predict(bsts_model,
+                       newdata = post_period_covariates,
+                       horizon = length(post_period),
+                       burn = 500) # 丢弃初始的 MCMC 样本
+
+# 提取预测反事实均值与可信区间
+pred_mean &lt;- colMeans(predictions$distribution)
+pred_lower &lt;- apply(predictions$distribution, 2, quantile, 0.025)
+pred_upper &lt;- apply(predictions$distribution, 2, quantile, 0.975)
+
+# 计算因果效应（观测值 - 预测值）
+observed_post &lt;- observed_admissions[post_period]
+causal_effect &lt;- observed_post - pred_mean
+effect_lower &lt;- observed_post - pred_upper # 效应下限 = 观测值 - 预测上限
+effect_upper &lt;- observed_post - pred_lower # 效应上限 = 观测值 - 预测下限
+
+# -- 4. 汇总并可视化结果 --
+
+# 结果汇总
+cat("\nTobacco Tax Policy Impact Results:\n")</code></pre>
+<pre><code>##
+## Tobacco Tax Policy Impact Results:</code></pre>
+<p><strong>代码与输出解读</strong>：这一段是全书 BSTS 的核心流程，值得逐行理解：</p>
+<ul>
+<li><code>AddLocalLinearTrend()</code> 和 <code>AddSeasonal()</code> 分别向状态设定中加入局部线性趋势（基线和增速都可变）和周期为 12 个月的季节成分；医疗月度数据通常两者都需要。</li>
+<li><code>bsts(admissions ~ .)</code> 表示用全部协变量预测入院数；尖峰-厚板先验在这里自动筛选控制变量。</li>
+<li><code>niter = 3000</code> 是 MCMC 迭代次数，<code>burn = 500</code> 表示预测时丢弃前 500 次预热样本。</li>
+<li><code>predict(..., horizon = 24)</code> 把模型向干预后外推 24 个月，得到反事实结局的完整后验样本（<code>predictions$distribution</code> 的每一列对应一个未来月份，每一行是一次 MCMC 抽样）。</li>
+<li>注意 <code>effect_lower</code>/<code>effect_upper</code> 的构造：效应 = 观测 − 预测，所以预测区间的上下限要反过来减，这是初学者常犯的错误。</li>
+</ul>
+<pre class="sourceCode r"><code>cat("True average effect:", round(mean(true_effect[post_period]), 2), "admissions per 100k\n")</code></pre>
+<pre><code>## True average effect: -5.89 admissions per 100k</code></pre>
+<p><strong>输出解读</strong>：真实平均效应为每月 -5.89 例/10 万，作为对照基准。</p>
+<pre class="sourceCode r"><code>cat("Estimated average effect:", round(mean(causal_effect), 2), "admissions per 100k\n")</code></pre>
+<pre><code>## Estimated average effect: -6.89 admissions per 100k</code></pre>
+<p><strong>输出解读</strong>：BSTS 估计的平均效应为 -6.89 例/10 万，与真实值 -5.89 相当接近（估计略偏大，来自抽样噪声），说明模型成功地从趋势和季节性中剥离出了政策效应。</p>
+<pre class="sourceCode r"><code>cat("Cumulative effect 95% credible interval: [", round(sum(effect_lower), 2), ",",
+    round(sum(effect_upper), 2), "]\n")</code></pre>
+<pre><code>## Cumulative effect 95% credible interval: [ -799.31 , 319.72 ]</code></pre>
+<p><strong>输出解读</strong>：24 个月累计效应的 95% 可信区间为 [-799.31, 319.72] 例/10 万——区间跨过了 0，且相当宽。宽区间来自多个不确定性来源的叠加：趋势外推的不确定性、季节性估计误差、控制变量回归系数的后验变异，以及 MCMC 抽样噪声。这提醒我们：点估计"看起来对"不等于结论稳健，必须看区间。</p>
+<pre class="sourceCode r"><code>cat("Posterior probability of a negative effect:", round(mean(predictions$distribution &gt; observed_post), 3) * 100, "%\n")</code></pre>
+<pre><code>## Posterior probability of a negative effect: 73.8 %</code></pre>
+<p><strong>输出解读</strong>：所谓"效应为负的后验概率"，是在所有 MCMC 后验抽样中，反事实预测值高于实际观测值的比例——这里是 73.8%。按贝叶斯证据标准，这还谈不上强证据（通常需要 90% 乃至 95% 以上才敢下结论）。在临床试验报告里，可以把它类比为"政策使入院下降的概率约为四分之三"，比单看一个 p 值更直观，但也更坦诚地暴露了证据强度。</p>
+<pre class="sourceCode r"><code># 可视化
+plot_data &lt;- data.frame(
+  time = time_idx,
+  observed = observed_admissions
+)
+# 为干预后时期添加反事实预测
+plot_data$predicted_mean &lt;- NA
+plot_data$predicted_lower &lt;- NA
+plot_data$predicted_upper &lt;- NA
+plot_data$predicted_mean[post_period] &lt;- pred_mean
+plot_data$predicted_lower[post_period] &lt;- pred_lower
+plot_data$predicted_upper[post_period] &lt;- pred_upper
+
+# 绘制结果图
+p1 &lt;- ggplot(plot_data, aes(x = time)) +
+  geom_line(aes(y = observed, color = "Observed"), size = 1) +
+  geom_line(aes(y = predicted_mean, color = "Predicted Counterfactual"), size = 1, linetype = "dashed") +
+  geom_ribbon(aes(ymin = predicted_lower, ymax = predicted_upper), alpha = 0.2, fill = "steelblue") +
+  geom_vline(xintercept = intervention_month, linetype = "dotted", color = "red", size = 1) +
+  annotate("text", x = intervention_month - 2, y = max(plot_data$observed, na.rm=TRUE),
+           label = "Tax Increase", color = "red", hjust = 1) +
+  labs(
+    title = "BSTS Causal Impact of Tobacco Tax on Hospital Admissions",
+    x = "Month",
+    y = "Admissions per 100k",
+    color = "Series"
+  ) +
+  theme_minimal() +
+  scale_color_manual(values = c("Observed" = "black", "Predicted Counterfactual" = "steelblue"))
+
+print(p1)</code></pre>
+<pre><code>## Warning: Removed 36 rows containing missing values or values outside the scale range (`geom_line()`).</code></pre>
+<p><strong>输出解读</strong>：ggplot2 的警告是说 <code>geom_line()</code> 自动删除了 36 行含缺失值的观测——那是干预前 36 个月的反事实预测线（我们故意设为 NA），完全不影响读图。</p>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-25-1.png" width="672" alt="BSTS 分析：烟草税对医院入院人数的影响。黑色实线为观测值，蓝色虚线为干预后预测的反事实轨迹，阴影为 95% 可信区间，红色竖线标记加税时点" /></p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p><strong>后验区间（credible interval）怎么读。</strong>上图是 BSTS 结果的标准呈现：黑线是实际观测，蓝色虚线是"假如没有加税"的反事实预测，浅蓝阴影是 95% 后验区间，红色竖线是干预时点。效应 = 两条线的纵向差距，而阴影的宽窄直接告诉你证据有多强。与频率学派的置信区间不同，贝叶斯可信区间的表述更符合临床直觉："给定数据和模型，真实效应有 95% 的概率落在这个范围内"。但它有两个重要前提——一是依赖先验设定（本例用默认先验，敏感性分析应换用合理先验重跑）；二是区间只反映统计不确定性，不包含模型设定错误带来的系统性偏差。医学报告中的惯例是：区间跨过 0 时，应如实表述为"未观察到统计学上可区分的效应"，而不是"没有效应"。</p>
+<p><strong>为什么要做安慰剂检验（placebo test）。</strong>时间序列因果分析最怕的是"模型把随机的波动当成了效应"。标准做法是安慰剂检验：把干预时点假移到干预前的某个时点重新拟合，如果那里也出现"显著效应"，说明模型的假阳性率太高，真实结论就不可信。多试几个假干预时点，效应估计的分布还能给出经验性的零分布参考。</p>
+</div>
+<p>分析显示，税收上调后与吸烟相关的住院入院显著减少。模型的变量选择自动将 <code>neighboring_state_admissions</code> 和 <code>population_65plus</code> 识别为结局的强预测因子，同时正确地给噪声变量 <code>economic_index</code> 分配了低重要性。</p>
+<p>估计的效应随时间推移变得更加明显，这反映了行为变化的现实时间线——戒烟及其健康收益并非瞬间发生。因果效应的 95% 可信区间给出了一系列可能的影响范围，并恰当地考虑了来自季节模式、混杂变量和模型参数的不确定性。这种概率化输出使决策者能够以量化的置信水平评估干预的价值，超越了简单的点估计。</p>
+<h3><span class="header-section-number">8.2.2</span> 远程心理治疗项目评估</h3>
+<p>设想评估一个在 COVID-19 大流行期间上线的全州范围远程心理治疗（teletherapy）项目——当时传统心理治疗的可及性受到限制。BSTS 可以帮助评估该项目对心理健康相关急诊科（ED）就诊的影响，同时控制大流行本身、季节性心理健康模式（如冬季抑郁）和经济混乱带来的混杂效应。</p>
+<p>下面的代码模拟了这一更复杂场景的数据。</p>
+<pre class="sourceCode r"><code># 心理健康干预模拟设置
+set.seed(456)
+n_weeks &lt;- 104  # 两年的周度数据
+intervention_week &lt;- 52  # 项目一年后启动
+
+# 生成心理健康急诊就诊模式
+# 强年度季节模式（冬季高峰）
+seasonal_mental &lt;- 10 * sin(2 * pi * (1:n_weeks) / 52 - pi/4)
+# 周内模式（如周一高峰）——修正后的公式
+weekly_mental &lt;- 3 * sin(2 * pi * (1:n_weeks) / 7)
+
+# COVID-19 冲击（第 13 周突然发生，随后消退）
+covid_impact &lt;- ifelse((1:n_weeks) &gt;= 13,
+                      15 * exp(-0.02 * pmax(0, (1:n_weeks) - 13)), 0)
+
+# 基线趋势
+mental_baseline &lt;- 40 + cumsum(rnorm(n_weeks, 0, 0.2))
+
+# 控制变量
+unemployment_weekly &lt;- 8 + covid_impact * 0.3 + rnorm(n_weeks, 0, 0.5)
+hospital_capacity &lt;- 85 - covid_impact * 0.5 + rnorm(n_weeks, 0, 1)
+control_region_ed &lt;- mental_baseline * 0.9 + seasonal_mental * 0.8 +
+                     covid_impact * 0.7 + rnorm(n_weeks, 0, 2)
+
+# 远程治疗的真实效应（急诊就诊逐渐减少）
+teletherapy_effect &lt;- rep(0, n_weeks)
+post_weeks &lt;- (intervention_week + 1):n_weeks
+for (i in 1:length(post_weeks)) {
+  teletherapy_effect[intervention_week + i] &lt;- -6 * (1 - exp(-0.1 * i)) + rnorm(1, 0, 0.3)
+}
+
+# 生成观测结局
+mental_ed_visits &lt;- mental_baseline + seasonal_mental + weekly_mental +
+                   covid_impact + unemployment_weekly * 0.5 +
+                   teletherapy_effect + rnorm(n_weeks, 0, 2)
+
+cat("\nSimulation ready for teletherapy program evaluation.\n")</code></pre>
+<pre><code>##
+## Simulation ready for teletherapy program evaluation.</code></pre>
+<p><strong>输出解读</strong>：模拟数据已就绪。注意数据里至少叠了四层时间结构：年度季节性（冬季抑郁高峰）、周内模式、第 13 周开始的疫情冲击（先冲高再指数消退），以及第 52 周启动的远程治疗效应。这正是 2020–2022 年真实心理健康服务的写照，也最能考验 BSTS 的本领——把项目效应从疫情冲击和季节性中分离出来。</p>
+<pre class="sourceCode r"><code>cat("The true average effect of the program is a reduction of",
+    round(abs(mean(teletherapy_effect[post_weeks])), 1), "ED visits per week.\n")</code></pre>
+<pre><code>## The true average effect of the program is a reduction of 4.8 ED visits per week.</code></pre>
+<p><strong>输出解读</strong>：模拟设定的真实效应是每周减少 4.8 次心理健康相关急诊就诊。原书在此未继续展示完整的 BSTS 拟合代码（流程与 8.2.1 完全一致：定义状态 → <code>bsts()</code> → <code>predict()</code> → 计算效应与区间），读者可自行复用上一节的模板，把月度数据换成周度、季节周期设为 52 周即可。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p><strong>BSTS 在疫情与政策干预前后的应用：并发事件的陷阱。</strong>2020 年后的观察性研究几乎都面临同一个难题——干预与疫情等重大冲击在时间上重叠。BSTS 的识别假设要求控制序列"不受干预影响"，且控制变量与结局的关系随时间稳定。如果疫情同时冲击了处理地区和对照地区（例如全国性封锁），把疫情指标（如病例数、流动指数）作为回归控制变量显式纳入模型，往往能把疫情通道从项目效应中剥离；原书在结论中也承认，这类"重大并发事件"若不建模就会违反稳定性假设。更棘手的情形是"处理本身改变了疫情暴露"（如远程医疗减少了就诊途中的感染），此时无干扰假设被破坏，BSTS 的结论只能理解为"总体影响"而非纯粹的项目效应。医学研究者若遇到"多政策同时落地"（如DRG付费改革与带量采购同年实施），也应保持同样的警惕：时间序列设计能分离的是"某一时点的净变化"，无法自动区分并列政策的各自贡献。</p>
+<p><strong>对药物流行病学的延伸。</strong>同一思路可用于药品安全信号评估：例如某省 2021 年对某处方药发出限用令后，药物相关不良反应的报告数是否下降？可用全国其他省份的报告率（经过人口与疾病结构标准化）作为控制序列，构造"假如没有限用令"的反事实报告轨迹。前提同样是控制省份未受该限用令影响、报告体系一致。</p>
+</div>
+<h3><span class="header-section-number">8.2.3</span> 医疗应用的实施指南</h3>
+<p>在医疗领域成功应用 BSTS，关键在于对数据和模型的精心准备。足够长的<strong>干预前时期</strong>至关重要——模型需要它来准确学习时间序列在变化发生之前的内在模式。对于月度数据，通常建议至少 24 至 36 个月的基线期，以完整捕捉年度季节性；而对于周度数据，100 个及以上的观测值能提供稳健的基础。</p>
+<p>高质量<strong>控制变量</strong>的选择同样关键。核心原则是：选择那些与医疗结局相关、但本身不受干预影响的预测因子。合适的候选通常包括人口学指标（如年龄分布和保险覆盖率）、医疗可及性指标（如医生密度）、经济因素（如当地失业率），以及未接受干预的类似对照地区的结局数据。</p>
+<p>最后，<strong>模型结构</strong>的设定必须反映医疗数据的复杂性。这通常需要考虑多个层次的季节性，例如由流感季或节假日驱动的年度模式，以及捕捉医院就诊星期几效应的周度周期。这些季节成分，再加上用于刻画人群健康渐变的灵活局部线性趋势，使模型能够构建精确而现实的反事实，从而估计干预的真实效应。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p><strong>BSTS 与中断时间序列（ITS）的区别。</strong>中断时间序列（interrupted time series，ITS）是流行病学和药物流行病学中评估政策与质量改进项目（如手卫生规范、临床路径上线）的常用设计：用干预前后的同一队列/同一系统的结局数据，通过分段回归（segmented regression）同时估计"水平变化"（干预瞬间的跳变）和"斜率变化"（干预前后趋势的弯折）。ITS 的优点是简单、透明、可加入协变量调整，且只需要一条序列。BSTS 的优势在于：其一，不假设趋势是线性的，局部线性趋势允许基线水平和增速漂移；其二，可以利用多条对照序列合成反事实，从而部分替代 ITS 难以实现的"对照地区比较"；其三，效应形态自由——ITS 经典模型默认"立即且永久"的效应，而戒烟、减盐、早筛项目的效应往往是渐进的、先增强后衰减的，BSTS 用状态空间模型天然容纳这类形态；其四，输出的是完整的概率分布而非单一 p 值。实务上两者可以互补：ITS 适合序列较短、没有合适对照的场景；BSTS 适合有多个对照序列、序列较长的政策评估。报告时无论用哪种方法，都应画出原始序列 + 反事实/拟合线 + 区间，让读者自己判断。</p>
+</div>
+<h2><span class="header-section-number">8.3</span> 结论</h2>
+<p>尽管功能强大，BSTS 分析的有效性仍依赖于几个需要仔细考量的关键假设。其中最重要的是<strong>无干扰假设</strong>（no interference assumption），即干预不会影响控制变量。这在公共卫生领域可能是个苛刻的条件——诸如对照地区的居民前往处理地区接受服务之类的溢出效应（spillover effects），会污染分析。此外，模型的结论可能对其内部<strong>设定</strong>（specification）敏感：趋势和季节成分的选择会影响由此产生的反事实，因此良好的做法是在不同但合理的模型结构下检验结果的稳健性。最后，BSTS 假设控制变量与结局之间的关系随时间保持<strong>稳定</strong>。像第二个例子中那样的重大并发事件（如大流行）可能违反这一假设，不过这类冲击通常可以通过把它们作为控制变量显式纳入模型来加以解释。</p>
+<p>与几种传统的准实验方法相比，BSTS 具有显著优势。与<strong>双重差分（DiD）</strong>相比，它不要求严格的平行趋势假设，因为它可以灵活地对复杂的季节性和非线性趋势建模。BSTS 不依赖于单一的、预先指定的对照组，而是自动学习多个控制序列的最优加权组合。它还超越了经典的<strong>中断时间序列（ITS）</strong>分析——后者局限于简单线性趋势和即时、永久的效应——BSTS 能够刻画逐渐显现并随时间演化的影响。最后，BSTS 可以理解为<strong>合成控制法（SCM）</strong>的贝叶斯概率化扩展：它通过生成完整的后验可信区间提供更严谨的不确定性量化，并通过尖峰-厚板先验采用更稳定的自动控制变量选择方法。</p>
+<p>贝叶斯结构时间序列为观察性时间序列数据的因果推断提供了一个稳健而灵活的框架。它对复杂现实模式建模、自动选择预测因子以及提供有原则的不确定性量化的能力，使其成为医疗与公共政策领域中循证评估的必备工具。成功的应用需要仔细斟酌数据质量、控制变量选择和模型设定，但回报是对干预真实影响更细致、更可靠的估计。</p>
+<div class="note">
+<span class="nt">背景与解释</span>
+<p><strong>给医学研究者的选用清单。</strong>适合用 BSTS 的场景：结局是聚合水平的时间序列（医院月入院量、全州急诊量、药房处方量），处理是某一时点落地的政策/项目，且存在若干未受处理影响的对照地区。不适合的场景：个体水平数据（应回到倾向得分或双重机器学习）、干预前序列太短（不足两年的季节周期）、处理与对照之间存在明显干扰（如相邻省份患者互相流动）、处理时点不明确或逐步铺开（此时应考虑"随时间展开的处理"模型）。报告清单：明确干预时点与依据；说明状态成分与先验；给出 MCMC 设置（迭代数、燃化期）；附原始序列与反事实预测图；做安慰剂检验；对趋势/季节设定做敏感性分析；同时报告累积效应与逐期效应。最后提醒：BSTS 估计的是"处理地区相对于合成对照的净变化"，在撰写论文时建议使用 STROSA（时间序列因果推断报告规范）一类的清单组织结果，把统计估计与临床/政策意义分开陈述。</p>
+</div>
