@@ -115,6 +115,468 @@ th{background:var(--tag);font-weight:700}
   <h1>第 13 章 有向无环图：描绘医疗决策的因果架构</h1>
   <p class="sub">原书第 13 章 · <a href="https://kamran-afzali.github.io/Bookdown_Causality/directed-acyclic-graphs-mapping-the-causal-architecture-of-healthcare-decisions.html">directed-acyclic-graphs-mapping-the-causal-architecture-of-healthcare-decisions.html</a> · Kamran Afzali《Causal Inference in R》中文译本 · 非官方翻译</p>
   <div class="content">
+<h2><span class="header-section-number">13.1</span> 引言</h2>
+<p>假设你正在分析一项新的糖尿病筛查项目能否降低心血管并发症。观察性数据显示，接受筛查的患者结局更好，但这是因为筛查真的有效，还是因为更健康、更有健康意识的患者更有可能接受筛查？也许社会经济地位通过获得预防保健和健康生活方式的机会，同时影响了筛查参与和健康结局。或者关系是反的——出现早期症状的患者更积极地寻求筛查，从而在筛查与结局之间制造出虚假关联。</p>
+<p>这些问题反映了因果推断的根本挑战：理解观测关联背后真实的因果结构。筛查与结局之间的关联可能通过多条通路产生，而其中只有一部分代表真正的因果效应。如果不显式地梳理这些关系，我们就有可能得出无效的结论，导致干预措施失灵或资源浪费。</p>
+<p>有向无环图（directed acyclic graphs，DAG）为阐述我们对系统中因果关系的假设提供了一种正式的可视化语言。与描述数据中关联的统计模型不同，DAG 表示的是潜在的数据生成过程本身——产生我们所观测模式的真实因果机制。这一区别至关重要，因为同一个统计关联可能源自根本不同的因果结构，而每一种结构都需要不同的分析策略才能有效地识别因果效应。</p>
+<p>DAG 的力量不在于它有能力从数据中发现因果关系——没有哪种纯粹的统计方法能在缺乏强假设的情况下可靠地做到这一点——而在于它能使我们的因果假设变得明确、可检验、可操作。通过迫使研究者在分析数据之前阐明他们对因果结构的看法，DAG 把因果推断从非正式的「讲故事」练习，转变为一个严谨的分析框架，对研究设计与统计调整都有清晰的含义。</p>
+<p>有向无环图由表示变量的节点和表示直接因果效应的有向边组成。「有向」指边带有箭头以表明因果方向——如果吸烟导致肺癌，我们从吸烟向肺癌画箭头，而不是反过来。「无环」禁止变量通过任何因果路径序列导致自身的反馈回路，确保图表达的是连贯的事件时间顺序。</p>
+<p>考虑一个联系用药依从性、健康结局和医疗费用的简单医疗示例。我们可能假设：依从性直接改善健康结局，健康结局进而降低医疗费用。这翻译成 DAG 结构就是：依从性 → 结局 → 费用。从依从性到费用没有直接箭头，代表我们相信依从性只通过影响健康结局来影响费用，而不是通过其他机制。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>医学研究者对「因果图」并不陌生。流行病学中的有向无环图传统可追溯到 20 世纪 90 年代：Greenland、Pearl 与 Robins (1999) 把 Pearl 的图模型系统引入流行病学，此前的 Sander Greenland 与 James Robins 已用「因果图」分析混杂结构，Robins later 还发展了「单一世界干预图」（switched acyclic graphs）。它与教科书中的两类经典框架形成互补：Rothman 的「充分组分病因模型」（因果派，causal pies）回答的是「一个病例由哪些病因组分凑合而成」，适合思考病因组合与交互；DAG 回答的是「变量之间如何相互关联、该调整哪些变量」，适合思考研究设计与偏倚来源。实用建议：写观察性研究论文时，用一张 DAG 向审稿人说明「我们认为的混杂结构」和「据此选择的调整变量集」，比在文字里罗列「我们调整了年龄、性别……」更有说服力，这也是近年 <em>NEJM</em>、<em>JAMA</em>、<em>Lancet</em> 系列期刊越来越常见的做法。</p>
+</div>
+<p>DAG 的数学形式化建立在结构因果模型（structural causal models）的概念之上。图中每个变量 <span class="math inline">\(V\)</span> 由一个结构方程 <span class="math inline">\(V = f_V(Pa(V), U_V)\)</span> 决定，其中 <span class="math inline">\(Pa(V)\)</span> 表示图中 <span class="math inline">\(V\)</span> 的父节点（直接原因）集合，<span class="math inline">\(U_V\)</span> 表示影响 <span class="math inline">\(V\)</span> 的未观测因素。这些方程描述的是「自然」如何生成数据，而非变量间如何在统计上相关。</p>
+<p>因果马尔可夫假设（causal Markov assumption）构成了图结构与概率分布之间的桥梁。它指出：给定其父节点，每个变量与所有非后代变量独立。形式上，对图中任意变量 <span class="math inline">\(V\)</span>，<span class="math inline">\(V \perp ND(V) | Pa(V)\)</span>，其中 <span class="math inline">\(ND(V)\)</span> 表示 <span class="math inline">\(V\)</span> 的非后代集合。该假设使我们能够按图结构分解联合概率分布：<span class="math inline">\(P(V_1, \ldots, V_n) = \prod_{i=1}^{n} P(V_i | Pa(V_i))\)</span>。</p>
+<p>使 DAG 能够进行因果推断的根本洞见是 do-演算（do-calculus），它区分「观测一个变量」与「干预并将其设定为某个特定值」。当我们观测到一位患者在服药（<span class="math inline">\(X = x\)</span>）时，我们是以自然发生的、受图中所有父节点影响的依从性模式为条件。而当我们干预以确保服药（<span class="math inline">\(do(X = x)\)</span>）时，我们切断所有指向 <span class="math inline">\(X\)</span> 的因果箭头，并强制 <span class="math inline">\(X\)</span> 取值为 <span class="math inline">\(x\)</span>，无论自然情况下会发生什么。依从性对结局的因果效应由干预分布 <span class="math inline">\(P(Y | do(X = x))\)</span> 定义，而不是观测分布 <span class="math inline">\(P(Y | X = x)\)</span>。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>「观察还是干预」是因果推断区别于传统统计的分水岭，两种经典语言在这里汇合：Rubin 的反事实框架把处理 <span class="math inline">\(X\)</span> 设为 <span class="math inline">\(x\)</span> 后的潜在结局记为 <span class="math inline">\(Y(x)\)</span>，平均处理效应为 <span class="math inline">\(E[Y(1) - Y(0)]\)</span>；Pearl 的 do-演算则写作 <span class="math inline">\(P(Y | do(X = x))\)</span>。两者在数学上等价（结构方程 + 独立性假设下可以互相推导），区别在风格：潜在结局框架对临床试验更亲切，do-演算对「图上的操作」更直观。对医学研究者，最有用的一招是把每个观察性研究问题翻译成「我想知道 <span class="math inline">\(P(Y | do(X))\)</span>，我手上只有 <span class="math inline">\(P(Y | X)\)</span>，差距在哪里、怎么补」——这个翻译过程会立刻暴露研究的识别假设。</p>
+</div>
+<p>理解信息如何在 DAG 中流动，能揭示哪些变量需要统计调整才能进行有效的因果推断。三种基本路径结构决定信息流动：链、叉和碰撞因子。在链 <span class="math inline">\(X \rightarrow M \rightarrow Y\)</span> 中，信息通过中介 <span class="math inline">\(M\)</span> 从 <span class="math inline">\(X\)</span> 流向 <span class="math inline">\(Y\)</span>。以 <span class="math inline">\(M\)</span> 为条件阻断这条通路，在去除通过 <span class="math inline">\(M\)</span> 的间接效应的同时，分离出 <span class="math inline">\(X\)</span> 对 <span class="math inline">\(Y\)</span> 的直接效应。在叉 <span class="math inline">\(X \leftarrow C \rightarrow Y\)</span> 中，共同原因 <span class="math inline">\(C\)</span> 诱导出 <span class="math inline">\(X\)</span> 与 <span class="math inline">\(Y\)</span> 之间的虚假关联。以 <span class="math inline">\(C\)</span> 为条件阻断这条非因果通路，就能揭示出：在考虑共同原因之后，<span class="math inline">\(X\)</span> 与 <span class="math inline">\(Y\)</span> 是独立的。</p>
+<p>碰撞因子结构 <span class="math inline">\(X \rightarrow C \leftarrow Y\)</span> 的行为违反直觉。这里 <span class="math inline">\(X\)</span> 与 <span class="math inline">\(Y\)</span> 边际独立——它们之间没有任何因果连接——但以它们的共同效应 <span class="math inline">\(C\)</span> 为条件，会诱导出 <span class="math inline">\(X\)</span> 与 <span class="math inline">\(Y\)</span> 之间的虚假关联。这一现象称为碰撞因子偏倚（collider bias）或选择偏倚（selection bias），是观察性研究中最常见的偏倚来源之一。如果我们把分析限制在出现并发症的患者中（并发症是一个由处理和潜在健康状况共同导致的碰撞因子），就会制造出处理与健康状况之间在全人群中并不存在的人为关联。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>三种基本结构对应流行病学最熟悉的几类问题，值得一一对照：<strong>叉（共同原因）</strong>就是「混杂」——处理与结局的共同原因（如病情严重程度同时影响用药与死亡），调整它即可阻断虚假通路；<strong>链（中介）</strong>就是「中介效应」问题，调整中介估计的是直接效应，不调整才是总效应，调整与否取决于研究问题；<strong>碰撞因子</strong>就是「选择偏倚」，医疗场景中极其常见：只分析「到过某家医院的患者」「存活到出院的患者」「失访前仍在随访的患者」「愿意参加研究的患者」，只要入选/失访同时受处理与结局（或其共同原因）影响，就等于在碰撞因子上加了条件。一个更微妙的形式是 M 偏倚（M-bias）：<span class="math inline">\(X \leftarrow A \rightarrow B \leftarrow C \rightarrow Y\)</span> 中，<span class="math inline">\(A\)</span>、<span class="math inline">\(C\)</span> 分别是处理和结局的原因，原本并无混杂，但若调整共同效应 <span class="math inline">\(B\)</span>（如某个受两者影响的就诊行为），反而凭空制造出混杂。这就是为什么「先把能拿到的变量都放进模型」不是安全策略。</p>
+</div>
+<p>连接处理 <span class="math inline">\(X\)</span> 与结局 <span class="math inline">\(Y\)</span> 的一条路径，如果含有我们以其为条件的非碰撞因子，或者含有我们<em>不</em>以其为条件（也不以其任何后代为条件）的碰撞因子，则该路径被阻断。后门准则（backdoor criterion）为「一组变量 <span class="math inline">\(Z\)</span> 是否足以识别 <span class="math inline">\(X\)</span> 对 <span class="math inline">\(Y\)</span> 的因果效应」提供了形式化检验：如果 <span class="math inline">\(Z\)</span> 阻断了从 <span class="math inline">\(X\)</span> 到 <span class="math inline">\(Y\)</span> 的所有后门路径（即通过指向 <span class="math inline">\(X\)</span> 的箭头进入 <span class="math inline">\(X\)</span> 的路径），并且 <span class="math inline">\(Z\)</span> 不包含 <span class="math inline">\(X\)</span> 的任何后代，则 <span class="math inline">\(Z\)</span> 满足后门准则。当后门准则满足时，我们就可以通过协变量调整来估计因果效应：<span class="math inline">\(P(Y | do(X = x)) = \sum_z P(Y | X = x, Z = z) P(Z = z)\)</span>。</p>
+<p>考虑估计一种糖尿病药物对心血管事件的因果效应。DAG 可能包含：药物 <span class="math inline">\(X\)</span>、心血管事件 <span class="math inline">\(Y\)</span>、病情严重程度 <span class="math inline">\(S\)</span>、年龄 <span class="math inline">\(A\)</span> 和社会经济地位 <span class="math inline">\(E\)</span>。因果箭头包括：<span class="math inline">\(A \rightarrow S\)</span>、<span class="math inline">\(A \rightarrow Y\)</span>、<span class="math inline">\(E \rightarrow X\)</span>、<span class="math inline">\(E \rightarrow Y\)</span>、<span class="math inline">\(S \rightarrow X\)</span> 和 <span class="math inline">\(X \rightarrow Y\)</span>。年龄和社会经济地位都通过后门路径混淆药物—结局关系。病情严重程度造成更复杂的结构——它混淆这一关系（病情更重的患者接受不同的药物），但如果药物通过改变病情进展发挥作用，它同时又中介处理效应。后门准则建议调整年龄和社会经济地位；至于病情严重程度是否需要调整，则要仔细斟酌，取决于我们追求的是总效应还是受控直接效应。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>后门准则与「充分调整集」（sufficient adjustment set）是 DAG 对临床研究最实用的部分，它把「该调整哪些变量」从统计经验问题变成了可以推导的数学问题：只要 DAG 画对了，用 dagitty 的 <code>adjustmentSets()</code>、R 包 <code>ggdag</code> 或网页版 DAGitty 就能自动列出所有满足后门准则的变量集，从中挑一个测量质量好、缺失少的即可。几个实操要点：(1) <strong>绝不能调整处理后变量</strong>（中介、碰撞因子及其后代），这是观察性研究中最常见的错误之一；(2) 调整集通常不唯一，例如共同原因的「上游」变量（调整年龄而不是同时调整年龄与年龄导致的疾病严重程度）只要满足准则也可以，此时优先调整与处理/结局关联强、测量精确的变量；(3) 仪器变量、代理变量（如用医保记录代替真实收入）也可以进 DAG，未测变量用带圆点的潜变量表示；(4) 工具变量分析可以看作「前门准则」（front-door criterion）的特例。把论文的调整变量集与 DAG 一起报告，方法学审稿人会清楚你是「有的放矢」而不是「 data-driven 捞变量」。</p>
+</div>
+<h2><span class="header-section-number">13.2</span> 在医疗研究中实施 DAG 分析</h2>
+<p>现代软件实现通过直观的界面让 DAG 分析变得触手可及。<code>dagitty</code> 包提供了 DAG 设定、分析与可视化的综合工具，<code>ggdag</code> 则在 ggplot2 图形语法的基础上提供了优雅的可视化方案。让我们通过一个真实的医疗应用来探索 DAG 分析：考察他汀类药物能否降低心脏病患者的死亡率。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 加载所需的 R 包
+library(dagitty)</code></pre></div>
+<pre><code>## 
+## Attaching package: &#39;dagitty&#39;
+## The following object is masked from &#39;package:survey&#39;:
+## 
+##     neighbours</code></pre>
+<p>输出解读：<code>dagitty</code> 加载成功。最后两行是提示：<code>survey</code> 包中的 <code>neighbours</code> 函数被同名对象屏蔽，后续若调用 <code>neighbours</code> 用的将是 dagitty 的版本——与 DAG 分析无关，忽略即可。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">library(ggdag)</code></pre></div>
+<pre><code>## 
+## Attaching package: &#39;ggdag&#39;
+## The following object is masked from &#39;package:stats&#39;:
+## 
+##     filter</code></pre>
+<p>输出解读：<code>ggdag</code> 加载成功；被屏蔽的是 <code>stats</code> 包的 <code>filter</code>。注意本章后文会同时加载 <code>dplyr</code>（其 <code>filter</code> 才是数据子集化常用的那个），届时以最后加载者为准，这类屏蔽提示在批量加载多个包时很常见。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">library(ggplot2)
+library(dplyr)
+library(broom)
+
+# 设置随机种子以保证结果可重复
+set.seed(456)
+
+# 定义因果结构
+# 变量：他汀（X）、死亡（Y）、年龄（A）、病情严重程度（S）、
+# 胆固醇（C）、运动（E）、社会经济地位（SES）
+dag &lt;- dagitty(&#39;dag {
+  Age [pos=&quot;0,0&quot;]
+  SES [pos=&quot;0,2&quot;]
+  Exercise [pos=&quot;1,2&quot;]
+  Cholesterol [pos=&quot;2,1&quot;]
+  Severity [pos=&quot;1,0&quot;]
+  Statins [exposure,pos=&quot;3,1&quot;]
+  Mortality [outcome,pos=&quot;5,1&quot;]
+  
+  Age -&gt; Severity
+  Age -&gt; Mortality
+  Age -&gt; Cholesterol
+  SES -&gt; Exercise
+  SES -&gt; Statins
+  SES -&gt; Mortality
+  Exercise -&gt; Cholesterol
+  Exercise -&gt; Mortality
+  Cholesterol -&gt; Severity
+  Cholesterol -&gt; Statins
+  Severity -&gt; Statins
+  Severity -&gt; Mortality
+  Statins -&gt; Mortality
+  Statins -&gt; Cholesterol
+}&#39;)
+
+# 可视化因果结构
+ggdag(dag) +
+  theme_dag() +
+  labs(title = &quot;Causal Structure: Statin Treatment and Mortality&quot;,
+       subtitle = &quot;Nodes represent variables, arrows represent direct causal effects&quot;)</code></pre></div>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-43-1.png" width="672" alt="DAG 图：他汀治疗与死亡率的因果结构，节点为变量，箭头为直接因果效应" /></p>
+<p>输出解读：<code>dagitty()</code> 用 DOT 风格的字符串定义图：方括号里的 <code>pos</code> 指定节点坐标，<code>exposure</code> / <code>outcome</code> 把「他汀」和「死亡」标记为暴露与结局（绘图中会有特殊配色）。从 <code>-&gt;</code> 列表可以读出全部假设的因果关系：年龄影响严重程度、死亡和胆固醇；社会经济地位影响运动、他汀使用和死亡；运动影响胆固醇和死亡；胆固醇影响严重程度和他汀使用；严重程度影响他汀和死亡；他汀影响死亡和胆固醇。图中可以直观看到：他汀与死亡之间既有直接因果箭头，也有大量经过 Age、SES、Cholesterol、Severity 的非因果路径。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 识别调整变量集
+cat(&quot;=== Adjustment Set Analysis ===\n\n&quot;)</code></pre></div>
+<pre><code>## === Adjustment Set Analysis ===</code></pre>
+<p>输出解读：一个 <code>cat()</code> 打印的分节标题，后文是调整集分析的结果。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 寻找最小充分调整集
+adjustment_sets &lt;- adjustmentSets(dag, exposure = &quot;Statins&quot;, outcome = &quot;Mortality&quot;)
+cat(&quot;Minimal sufficient adjustment sets:\n&quot;)</code></pre></div>
+<pre><code>## Minimal sufficient adjustment sets:</code></pre>
+<p>输出解读：注意接下来本该逐行打印出具体调整集（形如 <code>Set 1: {Age, SES, Severity}</code>），但原书输出中<strong>没有任何 Set 行</strong>——也就是说 <code>adjustment_sets</code> 是个空列表。这不是排版遗漏：它与 13.4 节 <code>ggdag_adjustment_set</code> 报出的「Failed to close backdoor paths」警告相互印证，最可能的原因是这张图并不满足「无环」要求（详见本节末「背景与解释」）。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">for(i in seq_along(adjustment_sets)) {
+  cat(sprintf(&quot;  Set %d: {%s}\n&quot;, i, paste(adjustment_sets[[i]], collapse = &quot;, &quot;)))
+}
+
+# 列出处理与结局之间的所有路径
+all_paths &lt;- paths(dag, from = &quot;Statins&quot;, to = &quot;Mortality&quot;)
+cat(&quot;\nAll paths from Statins to Mortality:\n&quot;)</code></pre></div>
+<pre><code>## 
+## All paths from Statins to Mortality:</code></pre>
+<p>输出解读：<code>for</code> 循环因列表为空没有产出；随后 <code>paths()</code> 列出他汀与死亡之间的全部路径，共 26 条。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">print(all_paths)</code></pre></div>
+<pre><code>## $paths
+##  [1] &quot;Statins -&gt; Cholesterol -&gt; Severity -&gt; Mortality&quot;                          
+##  [2] &quot;Statins -&gt; Cholesterol -&gt; Severity &lt;- Age -&gt; Mortality&quot;                   
+##  [3] &quot;Statins -&gt; Cholesterol &lt;- Age -&gt; Mortality&quot;                               
+##  [4] &quot;Statins -&gt; Cholesterol &lt;- Age -&gt; Severity -&gt; Mortality&quot;                   
+##  [5] &quot;Statins -&gt; Cholesterol &lt;- Exercise -&gt; Mortality&quot;                          
+##  [6] &quot;Statins -&gt; Cholesterol &lt;- Exercise &lt;- SES -&gt; Mortality&quot;                   
+##  [7] &quot;Statins -&gt; Mortality&quot;                                                     
+##  [8] &quot;Statins &lt;- Cholesterol -&gt; Severity -&gt; Mortality&quot;                          
+##  [9] &quot;Statins &lt;- Cholesterol -&gt; Severity &lt;- Age -&gt; Mortality&quot;                   
+## [10] &quot;Statins &lt;- Cholesterol &lt;- Age -&gt; Mortality&quot;                               
+## [11] &quot;Statins &lt;- Cholesterol &lt;- Age -&gt; Severity -&gt; Mortality&quot;                   
+## [12] &quot;Statins &lt;- Cholesterol &lt;- Exercise -&gt; Mortality&quot;                          
+## [13] &quot;Statins &lt;- Cholesterol &lt;- Exercise &lt;- SES -&gt; Mortality&quot;                   
+## [14] &quot;Statins &lt;- SES -&gt; Exercise -&gt; Cholesterol -&gt; Severity -&gt; Mortality&quot;       
+## [15] &quot;Statins &lt;- SES -&gt; Exercise -&gt; Cholesterol -&gt; Severity &lt;- Age -&gt; Mortality&quot;
+## [16] &quot;Statins &lt;- SES -&gt; Exercise -&gt; Cholesterol &lt;- Age -&gt; Mortality&quot;            
+## [17] &quot;Statins &lt;- SES -&gt; Exercise -&gt; Cholesterol &lt;- Age -&gt; Severity -&gt; Mortality&quot;
+## [18] &quot;Statins &lt;- SES -&gt; Exercise -&gt; Mortality&quot;                                  
+## [19] &quot;Statins &lt;- SES -&gt; Mortality&quot;                                              
+## [20] &quot;Statins &lt;- Severity -&gt; Mortality&quot;                                         
+## [21] &quot;Statins &lt;- Severity &lt;- Age -&gt; Cholesterol &lt;- Exercise -&gt; Mortality&quot;       
+## [22] &quot;Statins &lt;- Severity &lt;- Age -&gt; Cholesterol &lt;- Exercise &lt;- SES -&gt; Mortality&quot;
+## [23] &quot;Statins &lt;- Severity &lt;- Age -&gt; Mortality&quot;                                  
+## [24] &quot;Statins &lt;- Severity &lt;- Cholesterol &lt;- Age -&gt; Mortality&quot;                   
+## [25] &quot;Statins &lt;- Severity &lt;- Cholesterol &lt;- Exercise -&gt; Mortality&quot;              
+## [26] &quot;Statins &lt;- Severity &lt;- Cholesterol &lt;- Exercise &lt;- SES -&gt; Mortality&quot;       
+## 
+## $open
+##  [1]  TRUE FALSE FALSE FALSE FALSE FALSE  TRUE  TRUE FALSE  TRUE  TRUE  TRUE  TRUE  TRUE FALSE FALSE FALSE  TRUE  TRUE  TRUE FALSE FALSE  TRUE
+## [24]  TRUE  TRUE  TRUE</code></pre>
+<p>输出解读：这是全章信息量最大的一段输出。<code>$paths</code> 列出 26 条路径，<code>$open</code> 逐条给出逻辑值：TRUE 表示该路径当前「开放」（连通），FALSE 表示已被图中的碰撞因子天然阻断。读法示例：路径 [7]「Statins -&gt; Mortality」是我们要的直接因果路径；路径 [19]「Statins &lt;- SES -&gt; Mortality」是开放的后门路径，必须靠调整 SES 阻断；路径 [20]「Statins &lt;- Severity -&gt; Mortality」同理；路径 [3]「Statins -&gt; Cholesterol &lt;- Age -&gt; Mortality」在胆固醇处是碰撞结构（两个箭头相撞），天然关闭（FALSE）——但注意，一旦在模型中调整胆固醇，这类路径就会被「打开」（见 13.3 节过度调整的讨论）。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 检验 DAG 蕴含的条件独立性
+implications &lt;- impliedConditionalIndependencies(dag)
+cat(&quot;\nConditional independencies implied by the DAG:\n&quot;)</code></pre></div>
+<pre><code>## 
+## Conditional independencies implied by the DAG:</code></pre>
+<p>输出解读：<code>impliedConditionalIndependencies()</code> 把图翻译成一组条件独立命题，这些命题原则上可以用数据检验（见 13.6 节）。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;(These can be tested empirically to validate the DAG)\n&quot;)</code></pre></div>
+<pre><code>## (These can be tested empirically to validate the DAG)</code></pre>
+<p>输出解读：一句话点明用途：用数据检验这些独立性，可以（部分地）验证 DAG 是否站得住。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">for(i in seq_len(min(5, length(implications)))) {
+  cat(sprintf(&quot;  %s\n&quot;, implications[i]))
+}</code></pre></div>
+<pre><code>##   list(X = &quot;Age&quot;, Y = &quot;Exercise&quot;, Z = list())
+##   list(X = &quot;Age&quot;, Y = &quot;SES&quot;, Z = list())
+##   list(X = &quot;Cholesterol&quot;, Y = &quot;Mortality&quot;, Z = c(&quot;Age&quot;, &quot;Exercise&quot;, &quot;SES&quot;, &quot;Severity&quot;, &quot;Statins&quot;))
+##   list(X = &quot;Exercise&quot;, Y = &quot;Severity&quot;, Z = c(&quot;Age&quot;, &quot;Cholesterol&quot;, &quot;SES&quot;, &quot;Statins&quot;))</code></pre>
+<p>输出解读：dagitty 用 <code>list(X, Y, Z)</code> 的形式表示「X 与 Y 在给定 Z 时独立」。代码说最多打印 5 条，实际输出 4 条（该图只蕴含 4 条独立命题）。例如第一条表示 Age 与 Exercise 无条件独立——图中运动只受 SES 影响，与年龄没有任何路径相连；第二条表示 Age 与 SES 无条件独立；第三条表示在调整了 {Age, Exercise, SES, Severity, Statins} 后，胆固醇与死亡独立。独立命题越少，说明图对数据的约束越弱、越难被证伪。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 模拟与 DAG 结构一致的数据
+n &lt;- 5000
+
+# 生成基线特征
+age &lt;- rnorm(n, mean = 65, sd = 10)
+age &lt;- pmax(40, pmin(90, age))  # 限制在现实范围内
+
+ses &lt;- rnorm(n, mean = 0, sd = 1)
+
+# 运动取决于 SES
+exercise &lt;- rbinom(n, 1, plogis(-0.5 + 0.6 * ses))
+
+# 胆固醇取决于年龄和运动
+cholesterol &lt;- 200 + 0.5 * age - 20 * exercise + rnorm(n, 0, 30)
+
+# 病情严重程度取决于年龄和胆固醇
+severity &lt;- plogis(-5 + 0.04 * age + 0.01 * cholesterol)
+
+# 他汀处方取决于 SES、胆固醇和严重程度
+statin_prob &lt;- plogis(-2 + 0.3 * ses + 0.01 * cholesterol + 2 * severity)
+statins &lt;- rbinom(n, 1, statin_prob)
+
+# 他汀降胆固醇（反馈）
+cholesterol_treated &lt;- cholesterol - 40 * statins + rnorm(n, 0, 10)
+
+# 死亡取决于年龄、SES、运动、严重程度和他汀
+# 他汀的真实因果效应：风险比约 0.75（降低 25%）
+mortality_prob &lt;- plogis(-3 + 0.04 * age - 0.3 * ses - 0.4 * exercise + 
+                        2 * severity - 0.6 * statins)
+mortality &lt;- rbinom(n, 1, mortality_prob)
+
+# 构建数据集
+data &lt;- data.frame(
+  age = age,
+  ses = ses,
+  exercise = exercise,
+  cholesterol = cholesterol_treated,
+  severity = severity,
+  statins = statins,
+  mortality = mortality
+)
+
+cat(&quot;\n=== Dataset Summary ===\n&quot;)</code></pre></div>
+<pre><code>## 
+## === Dataset Summary ===</code></pre>
+<p>输出解读：这段代码把 DAG「翻译」成数据生成过程：按拓扑序依次生成年龄、SES、运动、胆固醇、严重程度、他汀，最后生成死亡，<code>plogis()</code> 把线性预测器变成概率。注意 <code>cholesterol_treated</code> 一行：他汀使胆固醇降低 40 个单位——这就是 DAG 中「Statins -&gt; Cholesterol」这条边的数值化；数据集里存的胆固醇是<em>治疗后</em>的值。死亡方程中他汀的系数 -0.6 对应风险比 exp(-0.6) ≈ 0.55。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;Sample size: %d patients\n&quot;, n))</code></pre></div>
+<pre><code>## Sample size: 5000 patients</code></pre>
+<p>输出解读：模拟 5000 名患者，规模足以让各种估计量的标准误都比较小。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;Statin users: %d (%.1f%%)\n&quot;, sum(statins), 100 * mean(statins)))</code></pre></div>
+<pre><code>## Statin users: 3774 (75.5%)</code></pre>
+<p>输出解读：他汀使用者 3774 人（75.5%）。这个比例偏高，因为 <code>statin_prob</code> 的线性预测器截距只有 -2，且严重程度系数高达 2，多数人跨过了 0.5 的概率线。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;Overall mortality: %d (%.1f%%)\n&quot;, sum(mortality), 100 * mean(mortality)))</code></pre></div>
+<pre><code>## Overall mortality: 2380 (47.6%)</code></pre>
+<p>输出解读：总死亡率 47.6%——作为结局发生率高得离谱（更像危重人群），因为 <code>severity</code> 系数 2 加上 <code>plogis(-3)</code> 的基础概率本就不低；对演示估计量行为没有妨碍，但别把它当作真实世界的死亡率。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;Mortality - Statin users: %.1f%%\n&quot;, 100 * mean(mortality[statins == 1])))</code></pre></div>
+<pre><code>## Mortality - Statin users: 45.5%</code></pre>
+<p>输出解读：他汀使用者的粗死亡率 45.5%。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;Mortality - Non-users: %.1f%%\n&quot;, 100 * mean(mortality[statins == 0])))</code></pre></div>
+<pre><code>## Mortality - Non-users: 54.2%</code></pre>
+<p>输出解读：非使用者的粗死亡率 54.2%。把这两行连起来读：粗看，他汀使用者的死亡率比非使用者<strong>低</strong>约 8.7 个百分点。</p>
+<p>模拟数据呈现出一种现实模式：他汀使用者的粗死亡率实际上低于非使用者，尽管他汀在因果上降低死亡率。这一「悖论」般的模式源于：病情更重的患者更常接受他汀，其升高的基线风险压过了保护性的处理效应。这说明为什么因果推断需要的不仅仅是观察关联——我们必须处理 DAG 所揭示的混杂结构。</p>
+<p>调整集分析识别出：为了有效地估计因果效应，我们必须测量并控制哪些变量。不同的调整集都可能满足后门准则，研究者可以基于测量质量、缺失数据模式或其他实际考量在它们之间选择。关键洞见在于：调整了错误的变量——或没能调整正确的变量——无论样本量多大、统计方法多复杂，都会产生有偏的因果估计。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>这里值得停下来核对一处原文与输出的不一致：本节文字说「他汀使用者的粗死亡率高于非使用者」（higher observed mortality rates），但上面两行输出是 45.5% 对 54.2%——使用者明明<em>更低</em>。这不是翻译问题，原书即如此（很可能是文字按另一套参数写的，后来改了代码没改文字）。正确的读法应该是：粗关联方向为「保护」（OR ≈ 0.71，见 13.3 节），但真实效应更强（OR ≈ 0.55）；混杂偏倚在这里把估计<em>拉向无效方向</em>，而不是颠倒方向。由此可以纠正一个常见误解：混杂偏倚并不总会「制造出」虚假关联，它同样可以把真实存在的关联稀释掉。医学文献中「适应证混杂（confounding by indication）通常使治疗显得有害」的说法只描述了其中一种情形；偏倚方向取决于治疗分配与结局风险的相对关系，必须结合具体 DAG 判断。这个例子也示范了模拟研究的正确用法：先设定已知真值的数据生成过程，再看各种分析方法能否还原它。</p>
+</div>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>细心的读者会发现：这张 DAG 同时包含 <code>Cholesterol -&gt; Statins</code> 和 <code>Statins -&gt; Cholesterol</code> 两条边——按定义这就构成了一个<strong>有向环</strong>，而「无环」正是 DAG 的题中之义（代码注释里也直白地写了 feedback）。这解释了两个悬而未决的现象：13.2 节 <code>adjustmentSets()</code> 为何没有任何输出（有环的图不存在有效的后门调整集），以及 13.4 节 <code>ggdag_adjustment_set()</code> 为何警告「Failed to close backdoor paths …… graph is not acyclic」。现实世界中，「他汀影响胆固醇、胆固醇水平又影响是否调整他汀」这种反馈确实存在，但 DAG 的表达力要求变量随时间（或测量时点）分层。标准修法有两种：(1) <strong>拆分变量</strong>——把胆固醇拆成「基线 LDL」（治疗前的混杂因子：Cholesterol₀ → Statins）和「治疗后 LDL」（中介：Statins → Cholesterol₁ → Mortality），环自然消解，这与临床数据库中「基线值/随访值」的常见结构吻合；(2) <strong>时间索引</strong>——按访视顺序画 Statins₁ → Chol₁ → Statins₂ → Chol₂ ……，形成一条链而非环。读者在自己的研究中遇到类似「互为因果」的结构时，都应优先考虑按测量时点拆层，而不是硬画成一个环。</p>
+</div>
+<h2><span class="header-section-number">13.3</span> 比较不同的分析策略</h2>
+<p>因果结构厘清之后，我们就可以比较不同的估计方法，并理解它们与底层因果图的关系。朴素比较完全忽略混杂，而正确设定的模型则调整通过 DAG 分析识别出的混杂因子。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 朴素分析（有混杂）
+naive_model &lt;- glm(mortality ~ statins, data = data, family = binomial())
+naive_or &lt;- exp(coef(naive_model)[&quot;statins&quot;])
+naive_ci &lt;- exp(confint(naive_model)[&quot;statins&quot;, ])</code></pre></div>
+<pre><code>## Waiting for profiling to be done...</code></pre>
+<p>输出解读：<code>glm(..., family = binomial())</code> 拟合只有他汀一个预测变量的 logistic 回归；<code>confint()</code> 用剖面似然法计算置信区间时会打印这行进度提示，属正常现象。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;1. Naive Analysis (no adjustment):\n&quot;)</code></pre></div>
+<pre><code>## 1. Naive Analysis (no adjustment):</code></pre>
+<p>输出解读：第一个策略的标题：不调整任何变量。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;   OR = %.3f [%.3f, %.3f]\n&quot;, naive_or, naive_ci[1], naive_ci[2]))</code></pre></div>
+<pre><code>##    OR = 0.706 [0.620, 0.803]</code></pre>
+<p>输出解读：朴素 OR = 0.706，95% CI [0.620, 0.803]，方向为「保护」，与真实因果效应 OR = 0.549 相比明显被稀释（偏弱）。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;   Interpretation: Confounded estimate\n\n&quot;)</code></pre></div>
+<pre><code>##    Interpretation: Confounded estimate</code></pre>
+<p>输出解读：原书自己标注这是「受混杂的估计」。注意它并没有颠倒方向，只是把真实效应拉向了 1（无效方向）。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 只调整年龄（不充分）
+age_model &lt;- glm(mortality ~ statins + age, data = data, family = binomial())
+age_or &lt;- exp(coef(age_model)[&quot;statins&quot;])
+age_ci &lt;- exp(confint(age_model)[&quot;statins&quot;, ])</code></pre></div>
+<pre><code>## Waiting for profiling to be done...</code></pre>
+<p>输出解读：第二个策略：只把年龄放进模型。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;2. Age-Adjusted Analysis:\n&quot;)</code></pre></div>
+<pre><code>## 2. Age-Adjusted Analysis:</code></pre>
+<p>输出解读：第二个策略的标题。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;   OR = %.3f [%.3f, %.3f]\n&quot;, age_or, age_ci[1], age_ci[2]))</code></pre></div>
+<pre><code>##    OR = 0.600 [0.523, 0.686]</code></pre>
+<p>输出解读：只调整年龄后 OR 从 0.706 降到 0.600，向真实值 0.549 靠近了一些，但仍未到位。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;   Interpretation: Partially controls confounding\n\n&quot;)</code></pre></div>
+<pre><code>##    Interpretation: Partially controls confounding</code></pre>
+<p>输出解读：原书标注「部分控制混杂」——年龄只是混杂结构的一角，SES 与严重程度的后门路径依然开放。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 最小充分调整集
+minimal_model &lt;- glm(mortality ~ statins + age + ses + severity, 
+                     data = data, family = binomial())
+minimal_or &lt;- exp(coef(minimal_model)[&quot;statins&quot;])
+minimal_ci &lt;- exp(confint(minimal_model)[&quot;statins&quot;, ])</code></pre></div>
+<pre><code>## Waiting for profiling to be done...</code></pre>
+<p>输出解读：第三个策略：同时调整 age + ses + severity，即本例的最小充分调整集。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;3. Minimal Sufficient Adjustment:\n&quot;)</code></pre></div>
+<pre><code>## 3. Minimal Sufficient Adjustment:</code></pre>
+<p>输出解读：第三个策略的标题。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;   OR = %.3f [%.3f, %.3f]\n&quot;, minimal_or, minimal_ci[1], minimal_ci[2]))</code></pre></div>
+<pre><code>##    OR = 0.567 [0.492, 0.653]</code></pre>
+<p>输出解读：调整 age + ses + severity 后 OR = 0.567，与真实值 0.549 已经非常接近，置信区间也包含真值。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;   Interpretation: Valid causal estimate\n\n&quot;)</code></pre></div>
+<pre><code>##    Interpretation: Valid causal estimate</code></pre>
+<p>输出解读：原书标注「有效的因果估计」——这是全章最重要的结论：按 DAG 找出的最小充分调整集确实还原了真实效应。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 过度调整的模型（含中介变量）
+overadjust_model &lt;- glm(mortality ~ statins + age + ses + severity + cholesterol + exercise,
+                        data = data, family = binomial())
+overadjust_or &lt;- exp(coef(overadjust_model)[&quot;statins&quot;])
+overadjust_ci &lt;- exp(confint(overadjust_model)[&quot;statins&quot;, ])</code></pre></div>
+<pre><code>## Waiting for profiling to be done...</code></pre>
+<p>输出解读：第四个策略：在最小充分调整集之外，再把胆固醇（他汀的下游中介）和运动也加进模型。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;4. Over-Adjusted Model (including post-treatment cholesterol):\n&quot;)</code></pre></div>
+<pre><code>## 4. Over-Adjusted Model (including post-treatment cholesterol):</code></pre>
+<p>输出解读：第四个策略的标题，括号里点明了问题所在：调整了「处理后」的胆固醇。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;   OR = %.3f [%.3f, %.3f]\n&quot;, overadjust_or, overadjust_ci[1], overadjust_ci[2]))</code></pre></div>
+<pre><code>##    OR = 0.614 [0.469, 0.803]</code></pre>
+<p>输出解读：加入中介后 OR 从 0.567 回升到 0.614——估计被推向无效方向，置信区间也明显变宽（上限到 0.803）。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;   Interpretation: Conditions on post-treatment variable\n\n&quot;)</code></pre></div>
+<pre><code>##    Interpretation: Conditions on post-treatment variable</code></pre>
+<p>输出解读：原书标注原因：以处理后变量为条件。具体机制见下方「背景与解释」。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 真实因果效应（来自模拟）
+true_or &lt;- exp(-0.6)  # 数据生成时使用的系数
+cat(sprintf(&quot;True Causal Effect: OR = %.3f\n&quot;, true_or))</code></pre></div>
+<pre><code>## True Causal Effect: OR = 0.549</code></pre>
+<p>输出解读：真实 OR = exp(-0.6) ≈ 0.549，即他汀使死亡几率约降低 45%（logistic 系数尺度）。这是评判四种策略的标尺。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;Best estimate achieved by: Minimal Sufficient Adjustment (OR = %.3f)\n&quot;, minimal_or))</code></pre></div>
+<pre><code>## Best estimate achieved by: Minimal Sufficient Adjustment (OR = 0.567)</code></pre>
+<p>输出解读：总结陈词：四个策略中，「最小充分调整」最接近真值。全节的启示是——分析策略的选择不是口味问题，而是由图结构决定的。</p>
+<p>这一比较揭示了不同的分析选择如何产生天差地别的估计。朴素分析提示他汀增加死亡——这是由适应证混杂（confounding by indication）造成的虚假关联：病情更重的患者接受治疗。（译者注：此句原文表述与上方输出不一致——朴素估计 OR = 0.706 小于 1，方向为「保护」而非「有害」，只是被混杂稀释；详见 13.2 节「背景与解释」的讨论。）只调整年龄可部分降低偏倚，但仍受社会经济地位和病情严重程度的混杂。通过 DAG 分析识别出的最小充分调整集，成功还原了接近真实因果效应的无偏估计。而把治疗后胆固醇水平纳入模型的过度调整，则通过以中介变量为条件、阻断他汀发挥作用的部分因果通路，引入了新的偏倚。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>「过度调整」值得医学研究者高度重视，它有两种不同机制。第一种是<strong>调整中介</strong>（本例的胆固醇）：他汀 → 降胆固醇 → 降死亡，把胆固醇放进模型等于问「在不改变胆固醇的前提下，他汀还有没有用」，估计的是受控直接效应而非总效应。如果真实世界还存在「他汀 → 死亡」的非胆固醇通路，直接效应与总效应并不相等，回归系数自然偏离总效应。第二种是<strong>调整碰撞因子或其后代</strong>：如 13.2 节路径 [3] 所示，胆固醇本身是碰撞结构上的节点，以它为条件反而打开新通路。Rothman 的经典警告「不要调整因果路径上的变量」与 M 偏倚讨论都是同一主题。实操 checklist：(1) 只调整「处理之前」就已确定的变量（基线协变量）；(2) 随访中测量的变量原则上都是候选中介或碰撞因子，除非你的估计目标就是直接效应（此时应明确用中介分析/自然直接效应的语言报告）；(3) 拿不准时问自己「这个变量在治疗开始时已经确定了吗」。本例中 <code>exercise</code> 被一并调整也值得商榷——运动可能是他汀使用的「代理」而非单纯混杂，取决于 DAG 怎么画，这正是 13.7 节强调「与临床专家共同画图」的原因。</p>
+</div>
+<h2><span class="header-section-number">13.4</span> 可视化因果结构以促进沟通</h2>
+<p>有效的可视化有助于向不熟悉 DAG 形式体系的临床合作者、期刊审稿人和政策制定者传达因果假设。<code>ggdag</code> 包提供了大量定制选项，可绘制达到发表质量的图形。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">tidy_dag &lt;- dag %&gt;%
+  tidy_dagitty() %&gt;%
+  node_status()
+
+# 可视化调整集
+ggdag_adjustment_set(dag, exposure = &quot;Statins&quot;, outcome = &quot;Mortality&quot;,
+                     shadow = TRUE) +
+  theme_dag() +
+  labs(title = &quot;Variables Required for Valid Causal Inference&quot;,
+       subtitle = &quot;Green = must adjust, Red = exposure/outcome, Gray = not required&quot;) +
+  theme(legend.position = &quot;bottom&quot;)</code></pre></div>
+<pre><code>## Warning in dag_adjustment_sets(., exposure = exposure, outcome = outcome, : Failed to close backdoor paths. Common reasons include:
+##             * graph is not acyclic
+##             * backdoor paths are not closeable with given set of variables
+##             * necessary variables are unmeasured (latent)</code></pre>
+<p><img src="https://kamran-afzali.github.io/Bookdown_Causality/bookdownproj_files/figure-html/unnamed-chunk-46-1.png" width="672" alt="ggdag 调整集可视化：他汀与死亡之间需要调整的变量" /></p>
+<p>输出解读：<code>ggdag_adjustment_set()</code> 本应把「必须调整的变量」标成绿色、暴露/结局标成红色、不需要的标成灰色。但这里先跳出一条 Warning：无法闭合后门路径，并列出三种常见原因——图不是无环的、给定变量集无法闭合后门路径、必要变量未测量（潜在变量）。结合 13.2 节的空调整集输出，本例大概率属于第一种：图中 Statins 与 Cholesterol 互为因果构成有向环（见 13.2 节「背景与解释」）。图形仍然画出来了，但「哪些变量该调整」的着色没有完成——这提醒我们：DAG 画错时，软件不会悄悄给你一个错答案，而是会报警；读懂警告是 DAG 工作流的基本功。</p>
+<p>这些可视化把抽象的因果关系转化成直观的图形，便于讨论和批判性评估。临床合作者可以判断提出的因果结构是否与领域知识相符，指出研究者可能忽略的额外通路，或提出值得做敏感性分析的替代结构。</p>
+<h2><span class="header-section-number">13.5</span> 敏感性与未测混杂</h2>
+<p>没有任何 DAG 能包含自然界中真正存在的所有变量。关键问题于是变成：未测变量会在多大程度上扭曲我们的因果估计。敏感性分析（sensitivity analysis）量化「未测混杂需要多强才能推翻我们的结论」。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">observed_or &lt;- minimal_or
+observed_rr &lt;- observed_or  # 罕见结局下的近似换算
+
+# 计算 E 值
+e_value &lt;- observed_rr + sqrt(observed_rr * (observed_rr - 1))</code></pre></div>
+<pre><code>## Warning in sqrt(observed_rr * (observed_rr - 1)): NaNs produced</code></pre>
+<p>输出解读：E 值的标准公式是 <code>RR + sqrt(RR × (RR − 1))</code>，它只对 RR ≥ 1 有定义。本例 observed_rr = 0.567 &lt; 1，根号内为负，于是弹出 NaN 警告，<code>e_value</code> 变成 NaN——这不是随机波动，是公式用错了方向（详见本节「背景与解释」）。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;Sensitivity to Unmeasured Confounding:\n&quot;)</code></pre></div>
+<pre><code>## Sensitivity to Unmeasured Confounding:</code></pre>
+<p>输出解读：敏感性分析小节标题。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;  Observed OR: %.3f\n&quot;, observed_or))</code></pre></div>
+<pre><code>##   Observed OR: 0.567</code></pre>
+<p>输出解读：输入量是 13.3 节最小充分调整模型的 OR = 0.567。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;  E-value: %.3f\n&quot;, e_value))</code></pre></div>
+<pre><code>##   E-value: NaN</code></pre>
+<p>输出解读：如警告所示，E 值算出来是 NaN。原书照此输出，实际上这行没有提供任何信息——修正方法见下。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;\nInterpretation:\n&quot;)</code></pre></div>
+<pre><code>## 
+## Interpretation:</code></pre>
+<p>输出解读：接下来几行本应给出解读，但因为 E 值是 NaN，打印出的数字没有意义。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;An unmeasured confounder would need to be associated with\n&quot;)</code></pre></div>
+<pre><code>## An unmeasured confounder would need to be associated with</code></pre>
+<p>输出解读：解读文字的第一行：一个未测混杂因子需要与……相关联。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;both statin use and mortality by OR = %.2f (each)\n&quot;, e_value))</code></pre></div>
+<pre><code>## both statin use and mortality by OR = NaN (each)</code></pre>
+<p>输出解读：第二行：与「他汀使用」和「死亡」各自的关联强度都要达到 E 值那么多，才能把观察到的效应完全解释掉。这里同样因为 NaN 而落空。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;to fully explain away the observed effect.\n\n&quot;)</code></pre></div>
+<pre><code>## to fully explain away the observed effect.</code></pre>
+<p>输出解读：解读文字收尾。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 评估合理性
+cat(&quot;Is this plausible?\n&quot;)</code></pre></div>
+<pre><code>## Is this plausible?</code></pre>
+<p>输出解读：引出下一个问题：这样强的未测混杂在临床上合理吗？</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;Consider the strength of measured confounders:\n&quot;)</code></pre></div>
+<pre><code>## Consider the strength of measured confounders:</code></pre>
+<p>输出解读：评估方法：拿已测混杂因子的关联强度作参照系。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">measured_confounders &lt;- glm(statins ~ age + ses + severity, 
+                           data = data, family = binomial())
+cat(&quot;\nAssociation with Treatment (Statins):\n&quot;)</code></pre></div>
+<pre><code>## 
+## Association with Treatment (Statins):</code></pre>
+<p>输出解读：把已测混杂因子对他汀的关联强度算出来，作为「多强才算强」的标尺。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">print(round(exp(coef(measured_confounders)), 3))</code></pre></div>
+<pre><code>## (Intercept)         age         ses    severity 
+##       2.516       0.960       1.337     581.309</code></pre>
+<p>输出解读：处理一侧的关联强度：年龄每岁 OR 0.960（几乎无关），SES 每单位 OR 1.337，而严重程度的 OR 高达 581——病情越重越可能用他汀，这是典型的适应证混杂。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">measured_outcome &lt;- glm(mortality ~ age + ses + severity, 
+                       data = data, family = binomial())
+cat(&quot;\nAssociation with Outcome (Mortality):\n&quot;)</code></pre></div>
+<pre><code>## 
+## Association with Outcome (Mortality):</code></pre>
+<p>输出解读：再算已测混杂因子对死亡的关联强度。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">print(round(exp(coef(measured_outcome)), 3))</code></pre></div>
+<pre><code>## (Intercept)         age         ses    severity 
+##       0.036       1.031       0.729      14.394</code></pre>
+<p>输出解读：结局一侧的关联强度：年龄每岁 OR 1.031，SES OR 0.729，严重程度 OR 14.394。把两行对照着看，就能判断未测混杂「需要多强才危险」。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;\nIf unmeasured confounding is weaker than measured confounding,\n&quot;)</code></pre></div>
+<pre><code>## 
+## If unmeasured confounding is weaker than measured confounding,</code></pre>
+<p>输出解读：判断准则的上半句：如果未测混杂比已测混杂还弱……</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;our causal conclusion remains robust.\n&quot;)</code></pre></div>
+<pre><code>## our causal conclusion remains robust.</code></pre>
+<p>输出解读：……那么因果结论就是稳健的。本节代码到此结束。</p>
+<p>敏感性分析为解读因果主张提供了关键背景。远大于已测混杂因子关联强度的 E 值，提示因果估计对未测混杂相对稳健。反之，小的 E 值意味着脆弱的结论，未测混杂可以轻易将其推翻。这一稳健性的定量评估，有助于研究者和临床医生评价因果证据的强度。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>E 值（E-value）由 VanderWeele &amp; Ding (2017, <em>Annals of Internal Medicine</em>) 提出，是观察性研究中最实用的敏感性分析工具之一：它回答「一个未测混杂因子需要同时与处理、结局有多强的关联（以风险比计，且取两者中的较弱者），才能把观察到的效应完全解释掉」。原书代码的问题在于公式只适用于 RR &gt; 1 的情形；对于<strong>保护性</strong>效应（RR &lt; 1），标准做法是先取倒数：本例 1/0.567 ≈ 1.76，再代入公式得 E 值 ≈ 1.76 + √(1.76 × 0.76) ≈ <strong>2.92</strong>。也就是说：需要某个未测因子同时以约 2.9 倍的 OR 关联他汀使用和死亡，才能解释掉全部观察效应。把它与上面两行输出对照——已测的严重程度关联强度高达 581（处理侧）和 14.4（结局侧）——结论「稳健」是合理的；但要注意这是本例数据生成过程的产物（severity 系数被设得极大），真实研究中的已测混杂很少这么强。R 的 <code>EValue</code> 包（VanderWeele 等）可以直接算，无需手写公式。医学研究者写论文时，把 E 值与已测混杂的强度对照报告，比空口说「残余混杂可能有限」有说服力得多。</p>
+</div>
+<h2><span class="header-section-number">13.6</span> DAG 的可检验含义与验证</h2>
+<p>DAG 相对于非正式因果推理的一个关键优势是：它们生成可检验的条件独立性命题。如果提出的 DAG 准确代表了因果结构，这些独立性关系就应当在数据中成立。违反则提示模型误设。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;\n=== Testing DAG Implications ===\n\n&quot;)</code></pre></div>
+<pre><code>## 
+## === Testing DAG Implications ===</code></pre>
+<p>输出解读：检验环节的标题。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># DAG 蕴含特定的条件独立性
+# 检验其中一个子集
+# 检验 1：给定 SES 时，运动与年龄独立
+test1 &lt;- glm(exercise ~ age + ses, data = data, family = binomial())
+p1 &lt;- coef(summary(test1))[&quot;age&quot;, &quot;Pr(&gt;|z|)&quot;]
+
+cat(&quot;Test 1: Exercise ⊥ Age | SES\n&quot;)</code></pre></div>
+<pre><code>## Test 1: Exercise ⊥ Age | SES</code></pre>
+<p>输出解读：检验 1 的命题：给定 SES 后，运动与年龄独立（图中运动只受 SES 影响，与年龄无路径）。做法是在 logistic 回归里看年龄系数是否为零。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;  p-value = %.4f\n&quot;, p1))</code></pre></div>
+<pre><code>##   p-value = 0.7356</code></pre>
+<p>输出解读：p = 0.7356，远不显著——没有证据反对「独立」，与 DAG 的预测一致。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;  Result: %s\n\n&quot;, ifelse(p1 &gt; 0.05, &quot;PASS&quot;, &quot;FAIL&quot;)))</code></pre></div>
+<pre><code>##   Result: PASS</code></pre>
+<p>输出解读：PASS。注意「PASS」只是「未能否证」，不等于「证明为真」。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"># 检验 2：给定 {年龄、严重程度、他汀、运动} 时，死亡与 SES 独立
+test2 &lt;- glm(mortality ~ ses + age + severity + statins + exercise,
+             data = data, family = binomial())
+p2 &lt;- coef(summary(test2))[&quot;ses&quot;, &quot;Pr(&gt;|z|)&quot;]
+
+cat(&quot;Test 2: Mortality ⊥ SES | {Age, Severity, Statins, Exercise}\n&quot;)</code></pre></div>
+<pre><code>## Test 2: Mortality ⊥ SES | {Age, Severity, Statins, Exercise}</code></pre>
+<p>输出解读：检验 2 的命题：给定 {年龄、严重程度、他汀、运动} 后，死亡与 SES 独立。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;  p-value = %.4f\n&quot;, p2))</code></pre></div>
+<pre><code>##   p-value = 0.0000</code></pre>
+<p>输出解读：p &lt; 0.0001（显示为 0.0000）， SES 系数高度显著。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(sprintf(&quot;  Result: %s\n\n&quot;, ifelse(p2 &gt; 0.05, &quot;PASS&quot;, &quot;FAIL&quot;)))</code></pre></div>
+<pre><code>##   Result: FAIL</code></pre>
+<p>输出解读：FAIL。这个「失败」该如何解读，见下方「背景与解释」——它暴露的很可能不是 DAG 的问题，而是检验本身选错了命题。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;Note: Test failures suggest the DAG may be misspecified.\n&quot;)</code></pre></div>
+<pre><code>## Note: Test failures suggest the DAG may be misspecified.</code></pre>
+<p>输出解读：原书的注释：检验失败提示 DAG 可能误设。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;Consider:\n&quot;)</code></pre></div>
+<pre><code>## Consider:</code></pre>
+<p>输出解读：接下来三行列出误设的三个可能来源。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;  - Additional unmeasured confounders\n&quot;)</code></pre></div>
+<pre><code>##   - Additional unmeasured confounders</code></pre>
+<p>输出解读：可能一：存在额外的未测混杂因子。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;  - Missing causal pathways\n&quot;)</code></pre></div>
+<pre><code>##   - Missing causal pathways</code></pre>
+<p>输出解读：可能二：遗漏了因果通路。</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cat(&quot;  - Measurement error in variables\n&quot;)</code></pre></div>
+<pre><code>##   - Measurement error in variables</code></pre>
+<p>输出解读：可能三：变量存在测量误差。</p>
+<p>这些经验检验为提出的因果结构提供了数据驱动的验证。虽然通过全部检验并不能证明 DAG 正确（多个不同的 DAG 可能蕴含相同的独立性命题），但检验失败明确表明存在误设，需要认真重新审视所假设的因果关系。</p>
+<div class="note">
+  <span class="nt">背景与解释</span>
+  <p>这节有一个容易被忽略的逻辑细节：<strong>Test 2 的「失败」很可能不是 DAG 的问题，而是检验选错了命题。</strong>回看 13.2 节 <code>impliedConditionalIndependencies()</code> 实际输出的 4 条独立命题，其中<em>并没有</em>「死亡 ⊥ SES | {Age, Severity, Statins, Exercise}」——因为 DAG 里有 <code>SES -&gt; Mortality</code> 这条直接箭头，该独立性本来就不成立，数据当然「拒绝」它。用 d-分离的语言说：这条路径上的 SES→死亡直接边永远开放，任何调整集都阻断不了。所以正确做法是只检验 DAG <em>真正蕴含</em>的独立性（dagitty 列出的那些），而不是随手挑一组条件。这个区分对医学研究者很重要：论文里写「我们检验了 DAG 的独立性含义，结果支持/不支持 DAG」时，检验的必须是 d-分离推出的命题。另一个原则：独立性检验只能<strong>证伪</strong>、不能<strong>证实</strong>（数据与多个 DAG 等价相容时无法区分），检验不显著不等于「DAG 被数据验证」；但检验显著一定是「有问题」的信号——可能是 DAG 画错、也可能是效应量估计的检验力问题，需要回到临床知识里找答案。</p>
+</div>
+<h2><span class="header-section-number">13.7</span> 医疗应用的实用指南</h2>
+<p>在医疗研究中成功实施 DAG，需要在理论理想与现实条件之间取得平衡。在看数据之前，先基于临床知识勾勒出因果结构草图。这可以防止利用偶然模式（chance patterns）的事后修改。让临床专家、流行病学家和领域专家参与 DAG 的迭代式打磨。不同的视角常常能暴露个别研究者忽略的假设或通路。</p>
+<p>把 DAG 聚焦于与具体因果问题相关的变量，而不是试图全面表示所有生物学关系。一个考察处理效应的 DAG，不必纳入每一条生理通路，只要这些机制不混淆所关注的关系。明确记录并论证所有因果假设。这种透明使读者能够评价他们是否认同提出的结构，并理解替代假设可能如何影响结论。</p>
+<p>通过敏感性分析考虑多个合理的 DAG 结构。如果不同的合理因果结构导向相似的结论，研究发现就获得了稳健性。如果结论关键性地依赖于有争议的因果假设，要明确承认这种不确定性，并考虑能直接检验这些假设的设计。用 DAG 识别设计改进的机会。如果 DAG 显示多测量一个变量就能实质性加强因果识别，就在后续研究中优先收集它。</p>
+<p>要认识到 DAG 代表的是假设而非发现。它们使既有的因果信念变得明确、可分析，但无法单凭观察性数据证明因果关系。其价值在于厘清「要把估计作因果解读，我们必须相信什么」，而不是提供确定的因果证明。</p>
+<h2><span class="header-section-number">13.8</span> 结论：DAG 是严谨因果推断的基石</h2>
+<p>有向无环图把因果推断从依赖未言明假设的非正式实践，转变为一个透明的分析框架——因果主张立足于明确、可评估的基础。通过迫使研究者在分析数据之前阐明他们对底层因果结构的看法，DAG 避免了利用虚假模式的临时调整，同时为「哪些变量需要测量和控制才能进行有效的因果推断」提供了清晰指引。</p>
+<p>我们考察的医疗应用展示了 DAG 对研究设计与分析的实用价值。在他汀—死亡例子中，DAG 分析揭示了为什么朴素比较会产生误导性结论，识别出需要调整的最小变量集，并解释了为什么过度调整会制造新的偏倚。这些洞见直接服务于新研究的设计和现有数据的分析，提升了指导临床决策与卫生政策的因果主张的可靠性。</p>
+<p>通过与 dagitty 和 ggdag 等现代统计软件的集成，严谨的 DAG 分析对应用研究者不再要求深厚的数学功底。这些工具自动完成调整集识别、生成可检验含义，并绘制能把因果假设有效传达给临床医生、政策制定者和期刊审稿人等多元受众的发表级图形。</p>
+<p>也许最重要的是，DAG 通过让假设可见、可检验，为因果主张提供了智识上的谦逊。当我们明确承认「因果结论取决于未测混杂足够弱」或「某些因果通路存在/不存在」时，我们是在邀请批判性评价和敏感性分析，而不是呈现虚假的确定性。这种透明强化而非削弱了因果推断——它把争论聚焦于因果结构的实质问题，而非统计方法的技术细节。</p>
+<p>随着我们从「描述关联」走向「推荐干预」，医疗研究的未来对严谨因果推断的要求与日俱增。DAG 为这一转变提供了必要的基础设施，使研究者能够设计出可信识别因果效应的研究、以尊重底层因果结构的方式分析数据、并以适当的分寸传达「从现有证据中我们能和不能得出什么」。对于致力于产生可改善患者照护和人群健康的因果知识的研究者，DAG 不是可选的技术工具，而是严谨因果思维的基本要求。</p>
 
   </div>
   <div class="pager">
